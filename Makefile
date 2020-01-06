@@ -365,6 +365,7 @@ help:
 	@echo "192     $(ROM_192), EmuTOS ROM padded to size 192 KB"
 	@echo "256     $(ROM_256), EmuTOS ROM padded to size 256 KB"
 	@echo "512     $(ROM_512), EmuTOS ROM padded to size 512 KB"
+	@echo "tiny68k $(ROM_TINY68K), EmuTOS ROM suitable for Tiny68k"
 	@echo "aranym  $(ROM_ARANYM), suitable for ARAnyM"
 	@echo "firebee $(SREC_FIREBEE), to be flashed on the FireBee"
 	@echo "firebee-prg emutos.prg, a RAM tos for the FireBee"
@@ -593,6 +594,29 @@ AMIGA_KICKDISK = emutos-kickdisk.adf
 NODEP += amigakd
 amigakd: amiga
 	./mkrom amiga-kickdisk $(ROM_AMIGA) $(AMIGA_KICKDISK)
+
+#
+# 256kB Image for Tiny68k SBC
+#
+# This is built as a ROM, even though it will be loaded into RAM on the
+# Tiny68k, since the board has RAM at the conventional ROM location.
+#
+
+ROM_TINY68K = emutos-tiny68k.img
+
+.PHONY: tiny68k
+NODEP += tiny68k
+tiny68k: UNIQUE = $(COUNTRY)
+tiny68k: OPTFLAGS = $(SMALL_OPTFLAGS)
+tiny68k: override DEF += -DMACHINE_TINY68K
+tiny68k:
+	$(MAKE) DEF='$(DEF)' OPTFLAGS='$(OPTFLAGS)' UNIQUE=$(UNIQUE) ROM_TINY68K=$(ROM_TINY68K) $(ROM_TINY68K)
+	@MEMBOT=$(call SHELL_SYMADDR,__end_os_stram,emutos.map);\
+	echo "# RAM used: $$(($$MEMBOT)) bytes ($$(($$MEMBOT - $(MEMBOT_TOS206))) bytes more than TOS 2.06)"
+
+$(ROM_TINY68K): ROMSIZE = 256
+$(ROM_TINY68K): emutos.img mkrom
+	./mkrom pad $(ROMSIZE)k $< $(ROM_TINY68K)
 
 #
 # ColdFire images

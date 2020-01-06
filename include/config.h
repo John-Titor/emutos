@@ -460,6 +460,20 @@
 #endif
 
 /*
+ * Defaults for the Tiny68k hardware
+ */
+#ifdef MACHINE_TINY68K
+# define CONF_ATARI_HARDWARE 0
+# define CONF_STRAM_SIZE 14*1024*1024
+# define CONF_WITH_RESET 0
+# define CONF_DETECT_FIRST_BOOT_WITHOUT_MEMCONF 1
+# define CONF_SERIAL_CONSOLE 1
+# define CONF_SERIAL_CONSOLE_ANSI 1
+# define STONX_NATIVE_PRINT 1
+# define ENABLE_KDEBUG 1
+#endif
+
+/*
  * Defaults for the M548x machine
  */
 #ifdef MACHINE_M548X

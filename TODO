@@ -1,0 +1,5 @@
+EmuTOS changes:
+  ☐ DUART support in bios/serport.c, bios/duart.h, bios/machine.c
+  ☐ bios/machine.c:machine_name()
+  ☐ CompactFlash driver - can it be factored into bios/ide.c, or does it need to be a new thing?
+  ☐ Delay timing in bios/delay.c assumes 16MHz
