@@ -609,12 +609,13 @@ NODEP += tiny68k
 tiny68k: UNIQUE = $(COUNTRY)
 tiny68k: OPTFLAGS = $(SMALL_OPTFLAGS)
 tiny68k: override DEF += -DMACHINE_TINY68K
+tiny68k: WITH_AES = 0
 tiny68k:
-	$(MAKE) DEF='$(DEF)' OPTFLAGS='$(OPTFLAGS)' UNIQUE=$(UNIQUE) ROM_TINY68K=$(ROM_TINY68K) $(ROM_TINY68K)
+	$(MAKE) DEF='$(DEF)' OPTFLAGS='$(OPTFLAGS)' UNIQUE=$(UNIQUE) WITH_AES=$(WITH_AES) ROM_TINY68K=$(ROM_TINY68K) $(ROM_TINY68K)
 	@MEMBOT=$(call SHELL_SYMADDR,__end_os_stram,emutos.map);\
-	echo "# RAM used: $$(($$MEMBOT)) bytes ($$(($$MEMBOT - $(MEMBOT_TOS206))) bytes more than TOS 2.06)"
+	echo "# RAM used: $$(($$MEMBOT)) bytes"
 
-$(ROM_TINY68K): ROMSIZE = 256
+$(ROM_TINY68K): ROMSIZE = 128
 $(ROM_TINY68K): emutos.img mkrom
 	./mkrom pad $(ROMSIZE)k $< $(ROM_TINY68K)
 
