@@ -414,10 +414,13 @@ obj/emutospp.ld: emutos.ld include/config.h tosvars.ld
 # one generic target to deal with all edited disassembly.
 #
 
-TOCLEAN += *.img *.map
+TOCLEAN += *.img *.map *.elf
 
-emutos.img: $(OBJECTS) obj/emutospp.ld Makefile
-	$(LD) $(CORE_OBJ) $(LIBS) $(OPTIONAL_OBJ) $(LIBS) $(END_OBJ) $(LDFLAGS) -Wl,-Map=emutos.map -o emutos.img
+emutos.img: emutos.elf
+	$(OBJCOPY) -O binary $< $@
+
+emutos.elf: $(OBJECTS) obj/emutospp.ld Makefile
+	$(LD) $(CORE_OBJ) $(LIBS) $(OPTIONAL_OBJ) $(LIBS) $(END_OBJ) $(LDFLAGS) -Wl,-Map=emutos.map -o $@
 	@if [ $$(($$(awk '/^\.data /{print $$3}' emutos.map))) -gt 0 ]; then \
 	  echo "### Warning: The DATA segment is not empty."; \
 	  echo "### Please examine emutos.map and use \"const\" where appropriate."; \
@@ -607,7 +610,8 @@ ROM_TINY68K = emutos-tiny68k.img
 .PHONY: tiny68k
 NODEP += tiny68k
 tiny68k: UNIQUE = $(COUNTRY)
-tiny68k: OPTFLAGS = $(SMALL_OPTFLAGS)
+#tiny68k: OPTFLAGS = $(SMALL_OPTFLAGS)
+tiny68k: OPTFLAGS = -g -O0
 tiny68k: override DEF += -DMACHINE_TINY68K
 tiny68k: WITH_AES = 0
 tiny68k:
@@ -615,7 +619,7 @@ tiny68k:
 	@MEMBOT=$(call SHELL_SYMADDR,__end_os_stram,emutos.map);\
 	echo "# RAM used: $$(($$MEMBOT)) bytes"
 
-$(ROM_TINY68K): ROMSIZE = 128
+$(ROM_TINY68K): ROMSIZE = 256
 $(ROM_TINY68K): emutos.img mkrom
 	./mkrom pad $(ROMSIZE)k $< $(ROM_TINY68K)
 

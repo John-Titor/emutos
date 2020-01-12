@@ -11,6 +11,7 @@
 /*.img
 /*.rom
 /*.map
+/*.elf
 /localconf.h
 /makefile.dep
 /needcountry.tmp

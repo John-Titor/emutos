@@ -14,8 +14,8 @@
  * to allow #include, #define, #if, etc. */
 #include "include/config.h"
 
-/* Create a plain binary file, without any header */
-OUTPUT_FORMAT(binary)
+/* build a symbol-rich ELF file */
+OUTPUT_FORMAT(elf32-m68k)
 
 /* The ROM address depends on the target */
 #if defined (MACHINE_AMIGA)
