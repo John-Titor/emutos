@@ -1,4 +1,6 @@
 EmuTOS changes:
+  ☐ init_system_timer needs to do something useful
+  ☐ turning up optimisation breaks things
   ☐ DUART support in bios/serport.c, bios/duart.h, bios/machine.c
   ☐ bios/machine.c:machine_name()
   ☐ CompactFlash driver - can it be factored into bios/ide.c, or does it need to be a new thing?

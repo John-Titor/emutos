@@ -610,12 +610,12 @@ ROM_TINY68K = emutos-tiny68k.img
 .PHONY: tiny68k
 NODEP += tiny68k
 tiny68k: UNIQUE = $(COUNTRY)
-#tiny68k: OPTFLAGS = $(SMALL_OPTFLAGS)
-tiny68k: OPTFLAGS = -g -O0
+tiny68k: OPTFLAGS = $(SMALL_OPTFLAGS)
 tiny68k: override DEF += -DMACHINE_TINY68K
 tiny68k: WITH_AES = 0
+tiny68k: ELF = 1
 tiny68k:
-	$(MAKE) DEF='$(DEF)' OPTFLAGS='$(OPTFLAGS)' UNIQUE=$(UNIQUE) WITH_AES=$(WITH_AES) ROM_TINY68K=$(ROM_TINY68K) $(ROM_TINY68K)
+	$(MAKE) DEF='$(DEF)' ELF='$(ELF)' OPTFLAGS='$(OPTFLAGS)' UNIQUE=$(UNIQUE) WITH_AES=$(WITH_AES) ROM_TINY68K=$(ROM_TINY68K) $(ROM_TINY68K)
 	@MEMBOT=$(call SHELL_SYMADDR,__end_os_stram,emutos.map);\
 	echo "# RAM used: $$(($$MEMBOT)) bytes"
 
