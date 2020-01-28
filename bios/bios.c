@@ -123,7 +123,7 @@ static void vecs_init(void)
          * we're doing here from the compiler, as otherwise it will assume
          * this code will never be executed and delete it all.
          */
-        ULONG * volatile zero_ptr = &ULONG_AT(0x00000000);
+        volatile ULONG * volatile zero_ptr = &ULONG_AT(0x00000000);
         *zero_ptr = ((ULONG*)&os_header)[0];
     }
     ULONG_AT(0x00000004) = ((ULONG*)&os_header)[1]; /* Reset: Initial PC */
