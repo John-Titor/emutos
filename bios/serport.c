@@ -359,11 +359,9 @@ LONG bconout1(WORD dev, WORD b)
 #endif
 }
 
-void push_serial_iorec(UBYTE data)
+void push_serial_iorec(IOREC *in, UBYTE data)
 {
-    IOREC *in = &iorec1.in;
     WORD tail;
-
     tail = incr_tail(in);
     if (tail == in->head) {
         /* iorec full, do nothing */
@@ -387,7 +385,7 @@ void mfp_rs232_rx_interrupt_handler(void)
         push_ascii_ikbdiorec(data);
 #else
         /* And append a new IOREC value into the serial buffer */
-        push_serial_iorec(data);
+        push_serial_iorec(&iorec1.in, data);
 #endif
     }
 
@@ -953,12 +951,12 @@ void scc_init(void)
  * DUART support routines.
  */
 
-static void write_duart(UBYTE reg, UBYTE val) {
+void write_duart(UBYTE reg, UBYTE val) {
     volatile UBYTE *duart_base = (volatile UBYTE *) DUART_BASE;
     duart_base[reg] = val;
 }
 
-static UBYTE read_duart(UBYTE reg) {
+UBYTE read_duart(UBYTE reg) {
     volatile UBYTE *duart_base = (volatile UBYTE *) DUART_BASE;
     return duart_base[reg];
 }
@@ -1157,8 +1155,11 @@ static ULONG rsconf_duart(UBYTE port, EXT_IOREC *iorec, WORD baud, WORD ctrl, WO
     /* Write the Aux Control Register
      *
      */
+#ifdef MACHINE_TINY68K
+    write_duart(DUART_ACR, 0x70); /* ACR[7] = 0, timer mode, x16 prescaler */ /* ACR[7] = 0 so we get 38.4K */
+#else
     write_duart(DUART_ACR, 0xf0); /* ACR[7] = 1, timer mode, x16 prescaler */
-
+#endif
     /* For hardware flow control purposes, we need to *set* the RTS output port bit (bit 0 for 
      * port A, bit 1 for port B). Setting an output port bin cause the actual pin
      * to be zero, which is how we want to start (i.e., active-low RTS is asserted). 
@@ -1176,22 +1177,25 @@ static ULONG rsconf_duart(UBYTE port, EXT_IOREC *iorec, WORD baud, WORD ctrl, WO
     return old;
 }
 
-#if CONF_SERIAL_CONSOLE
 /* Called from assember routine duart_interrupt */
-void duart_rs232_interrupt_handler(void)
+void duart_rs232_interrupt_handler_channel_a(void)
 {
-    UBYTE ascii;
-
     while(read_duart(DUART_SRA) & DUART_SR_RXRDY) {
-        ascii = read_duart(DUART_RHRA);
-        push_ascii_ikbdiorec(ascii);
+        push_serial_iorec(&iorecDUARTA.in, read_duart(DUART_RHRA));
     }
 }
-#endif /* CONF_SERIAL_CONSOLE */
+
+#ifdef CONF_WITH_DUART_CHANNEL_B
+void duart_rs232_interrupt_handler_channel_b(void)
+{
+    while(read_duart(DUART_SRB) & DUART_SR_RXRDY) {
+        push_serial_iorec(&iorecDUARTB.in, read_duart(DUART_RHRB));
+    }
+}
+#endif
 
 static void duart_init_interrupts_common(void)
 {
-#if 0 /* Enabled in interrupt commmit */	
     LONG *vector_addr;
     /* Disable DUART interrupts before configuration */
     write_duart(DUART_IMR, 0);
@@ -1201,18 +1205,13 @@ static void duart_init_interrupts_common(void)
     *vector_addr = (LONG) duart_interrupt;
     write_duart(DUART_IVR, 64+61);
 
-    UBYTE IMR_value = 0;
+    UBYTE IMR_value = DUART_IMR_RXRDY_A;
 
 #if CONF_DUART_TIMER_C
     IMR_value |= DUART_IMR_COUNTER_READY;
 #endif
-
-#if CONF_SERIAL_CONSOLE
-    IMR_value |= DUART_IMR_RXRDY_A;
-#endif
     /* Enable the interrupt(s). */
     write_duart(DUART_IMR, IMR_value);
-#endif
 }
 
 #if CONF_DUART_TIMER_C
@@ -1230,38 +1229,29 @@ void duart_init_system_timer(void)
 
 #endif
 
-#if CONF_SERIAL_CONSOLE
-
 void duart_rs232_enable_interrupt(void)
 {
     duart_init_interrupts_common();
 }
 
-#endif
-
 static void init_duart(void)
 {
-    /* Disable interrupts. Will be configured by timer and serial interupts later. */
-    /* Baud rate stuff will be done by rsconf. */
-    write_duart(DUART_IMR, 0);
+    write_duart(DUART_OPCR, 0);
 }
 
 /*
  * DUART port A i/o routines
  */
 
-static LONG bconstatDUARTA(void) {
-    return (read_duart(DUART_SRA) & DUART_SR_RXRDY) ? -1L : 0L;
+static LONG bconstatDUARTA(void)
+{
+
+    return bconstat_iorec(&iorecDUARTA);
 }
 
-static LONG bconinDUARTA(void) {
-    while (!bconstatDUARTA())
-    {
-        /* Wait */
-    }
-
-    /* Read the received byte */
-    return read_duart(DUART_RHRA) & iorecDUARTA.datamask;
+static LONG bconinDUARTA(void)
+{
+    return bconin_iorec(&iorecDUARTA);
 }
 
 static LONG bcostatDUARTA(void) {
@@ -1288,18 +1278,14 @@ static ULONG rsconfDUARTA(WORD baud, WORD ctrl, WORD ucr, WORD rsr, WORD tsr, WO
  * DUART port B i/o routines
  */
 
-static LONG bconstatDUARTB(void) {
-    return (read_duart(DUART_SRB) & DUART_SR_RXRDY) ? -1L : 0L;
+static LONG bconstatDUARTB(void)
+{
+    return bconstat_iorec(&iorecDUARTB);
 }
 
-static LONG bconinDUARTB(void) {
-    while (!bconstatDUARTB())
-    {
-        /* Wait */
-    }
-
-    /* Read the received byte */
-    return read_duart(DUART_RHRB) & iorecDUARTB.datamask;
+static LONG bconinDUARTB(void)
+{
+    return bconin_iorec(&iorecDUARTB);
 }
 
 static LONG bcostatDUARTB(void) {
@@ -1385,7 +1371,16 @@ static void init_bconmap(void)
         memcpy(&maptable[5],&maptable_duart_port_b,sizeof(MAPTAB));
         bconmap_root.maptabsize = 6;
 #endif
+#ifdef MACHINE_TINY68K
+        /*
+         * For the Tiny68K, we use port DUART port B as the console and reserve
+         * port A for file transfers since flow control pins are available on the
+         * port A header but not the port B header.
+         */
+        bconmap_root.mapped_device = 11;
+#else
         bconmap_root.mapped_device = 10;
+#endif
     }
 #endif
 
@@ -1459,11 +1454,10 @@ void init_serport(void)
     iorecDUARTB.out.buf = obufDUARTB;
 #endif /* CONF_WITH_DUART_CHANNEL_B */
     if (has_duart) {
-        rsconfDUARTA(B9600, 0, 0x88, 0, 0, 0);
+        rsconfDUARTA(DEFAULT_BAUDRATE, 0, 0x88, 0, 0, 0);
 #if CONF_WITH_DUART_CHANNEL_B
-        rsconfDUARTB(B9600, 0, 0x88, 0, 0, 0);
+        rsconfDUARTB(DEFAULT_BAUDRATE, 0, 0x88, 0, 0, 0);
 	bconoutDUARTB(0, '*');
-
 #endif
     }
 #endif /* CONF_WITH_DUART */
@@ -1496,6 +1490,9 @@ void init_serport(void)
 
 #ifdef __mcoldfire__
     coldfire_rs232_enable_interrupt();
+#endif
+#if CONF_WITH_DUART
+    duart_rs232_enable_interrupt();
 #endif
 }
 
