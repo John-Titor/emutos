@@ -41,6 +41,10 @@
         .globl  _call_etv_critic
         .globl  _default_etv_critic
 
+#if CONF_WITH_DUART
+        .globl  _duart_interrupt
+#endif
+
 // ==== References ===========================================================
 
         // TOS System variables
@@ -790,6 +794,68 @@ _sccb_es_interrupt:
 
 #endif  //CONF_WITH_SCC
 
+#if CONF_WITH_DUART
+// ==== Motorola 68681 Dual UART Interrupt Handler ====
+// We look at three sources of interrupts from the DUART:
+//     - Counter/Timer Ready (bit 3 of Interrupt Status register)
+//     - Channel A Receive Ready (bit 1 of the ISR).
+//     - Channel B Receive Ready (bit 5 of the ISR) if enabled.
+
+_duart_interrupt:
+#ifdef __mcoldfire__
+        lea     -16(sp),sp
+        movem.l d0-d1/a0-a1,(sp)
+#else
+        movem.l d0-d1/a0-a1,-(sp)
+#endif
+        lea     DUART_BASE, a0
+        move.b  11(a0), d0            // grab the Interrupt Status Register
+ #if CONF_DUART_TIMER_C
+        btst.b  #3, d0                // Is Counter Ready (bit 3) set?
+        beq     duart_check_rx_2      //    No, skip timer handling code
+
+// Call vector_5ms
+// As it will return with RTE, we must setup a proper stack frame
+        pea     duart_check_rx(pc)    // Return address
+        move.w  sr, -(sp)             // Status Register
+
+        .extern _vector_5ms
+        move.l  _vector_5ms, a0
+        jmp     (a0)                  // Call the 200 Hz system timer
+ #endif
+duart_check_rx:
+        lea     DUART_BASE, a0
+ #if CONF_DUART_TIMER_C
+        tst.b   0x1f(a0)              // Send stop counter to ack timer interrupt. Does not actually stop since in timer mode.
+ #endif
+duart_check_rx_2:
+        move.b  11(a0), d0            // Get the ISR again
+        btst.b  #1, d0                // Is the Chan A Receive Ready (bit 1) set?
+#ifndef CONF_WITH_DUART_CHANNEL_B
+        beq     duart_intr_done       //    No, skip serial handling code
+#else
+        beq     duart_check_channel_b  // No, but check channel B
+#endif
+        jbsr    _duart_rs232_interrupt_handler_channel_a
+#ifdef CONF_WITH_DUART_CHANNEL_B
+duart_check_channel_b:
+        lea     DUART_BASE, a0
+        move.b  11(a0), d0            // Get the ISR again
+        btst.b  #5, d0                // Is the Chan B Receive Ready (bit 5) set?
+        beq     duart_intr_done
+
+        jbsr    _duart_rs232_interrupt_handler_channel_b
+#endif
+duart_intr_done:
+#ifdef __mcoldfire__
+        movem.l (sp),d0-d1/a0-a1
+        lea     16(sp),sp
+#else
+        movem.l (sp)+,d0-d1/a0-a1
+#endif
+        rte
+
+#endif /* CONF_WITH_DUART */
 
 // ==== Critical error handler functions =====================================
 
