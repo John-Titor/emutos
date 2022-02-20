@@ -117,11 +117,18 @@ struct IDE
     { i->cylinder_high = HIBYTE(a); i->cylinder_low = LOBYTE(a); }
 #define IDE_WRITE_COMMAND_HEAD(i,a,b) \
     { i->head = b; i->command = a; }
-#define IDE_WRITE_CONTROL(i,a)    i->control = a
+
+#if defined(MACHINE_PT68K5)
+# define IDE_WRITE_CONTROL(i,a)
+# define IDE_READ_ALT_STATUS(i)    i->command
+#else
+# define IDE_WRITE_CONTROL(i,a)    i->control = a
+# define IDE_READ_ALT_STATUS(i)    i->control
+#endif
+
 #define IDE_WRITE_HEAD(i,a)       i->head = a
 
 #define IDE_READ_STATUS(i)        i->command
-#define IDE_READ_ALT_STATUS(i)    i->control
 #define IDE_READ_ERROR(i)         i->features
 #define IDE_READ_SECTOR_NUMBER_SECTOR_COUNT(i) \
     MAKE_UWORD(i->sector_number, i->sector_count)
@@ -161,7 +168,7 @@ struct IDE
 #ifdef MACHINE_FIREBEE
 #define NUM_IDE_INTERFACES  2
 #else
-#define NUM_IDE_INTERFACES  4   /* (e.g. stacked ST Doubler) */
+#define NUM_IDE_INTERFACES  1   /* (e.g. stacked ST Doubler) */
 #endif
 
 struct IDE
@@ -190,6 +197,43 @@ struct IDE
 };
 
 #define ide_interface           ((volatile struct IDE *)0xfff00000)
+
+#elif defined(MACHINE_PT68K5)
+
+#define NUM_IDE_INTERFACES  2
+#define IDE_XTIDE_BASE      0x10000300UL
+#define IDE_ONBOARD_BASE    0x20004180UL
+
+struct IDE
+{
+    XFERWIDTH data;
+    UBYTE filler02;
+    UBYTE features; /* Read: error */
+    UBYTE filler04;
+    UBYTE sector_count;
+    UBYTE filler06;
+    UBYTE sector_number;
+    UBYTE filler08;
+    UBYTE cylinder_low;
+    UBYTE filler0A;
+    UBYTE cylinder_high;
+    UBYTE filler0C;
+    UBYTE head;
+    UBYTE filler0E;
+    UBYTE command; /* Read: status */
+    /*
+     * PT68K5 onboard / XTIDE do not provide access to the alternate status and
+     * control registers. Neither support interrupts, so that's OK.
+     */
+
+    /*
+     * To make (ide_interface + 1) work, we need to pad this structure out
+     * to cover the gap between the XTIDE and onboard IDE register windows.
+     */
+    UBYTE filler10[(IDE_ONBOARD_BASE - IDE_XTIDE_BASE) - 16];
+};
+
+#define ide_interface       ((volatile struct IDE *)IDE_XTIDE_BASE)
 
 #else
 
@@ -584,6 +628,8 @@ BOOL detect_ide(void)
             break;
         }
     }
+#elif defined(MACHINE_PT68K5)
+    has_ide = 0x03;
 #else
     has_ide = 0x00;
 #endif
@@ -678,6 +724,7 @@ static UWORD ide_device_type(WORD dev)
  * the following routines for device type detection are adapted
  * from Hale Landis's public domain ATA driver, MINDRVR.
  */
+#ifndef CONF_IDE_NO_RESET
 static int wait_for_not_BSY_and_DRDY(volatile struct IDE *interface,LONG timeout)
 {
     LONG next = hz_200 + timeout;
@@ -726,13 +773,16 @@ static UBYTE ide_decode_type(UBYTE status,UWORD signature)
 
     return DEVTYPE_UNKNOWN;
 }
+#endif /* CONF_IDE_NO_RESET */
 
 static void ide_detect_devices(UWORD ifnum)
 {
     volatile struct IDE *interface = ifinfo[ifnum].base_address;
     struct IFINFO *info = ifinfo + ifnum;
+#ifndef CONF_IDE_NO_RESET
     UBYTE status;
     UWORD signature;
+#endif
     int i;
 
     MAYBE_UNUSED(interface);
@@ -757,6 +807,17 @@ static void ide_detect_devices(UWORD ifnum)
 #endif
     }
 
+#ifdef CONF_IDE_NO_RESET
+    /* Some IDE interfaces do not provide access to the IDE device control register,
+     * so we can't use the logic below that does a software reset. 
+     * As a hack, we just force the dev type for all detected interfaces. 
+     */
+    for (i = 0; i < 2; i++) {
+        if (info->dev[i].type == DEVTYPE_UNKNOWN) { // device was detected
+            info->dev[i].type = DEVTYPE_ATA; // Force it to ATA.
+        }
+    }
+#else
     /* recheck after soft reset, also detect ata/atapi */
     ide_select_device(interface,0);
     ide_reset(ifnum);
@@ -769,7 +830,7 @@ static void ide_detect_devices(UWORD ifnum)
             info->dev[i].type = ide_decode_type(status,signature);
         }
     }
-
+#endif
     for (i = 0; i < 2; i++)
         KDEBUG(("IDE i/f %d device %d is type %d\n",ifnum,i,info->dev[i].type));
 }
