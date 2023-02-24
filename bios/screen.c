@@ -628,7 +628,14 @@ void screen_init_mode(void)
     lisa_screen_init();
 #endif
 
+#ifdef CONF_SERIAL_CONSOLE
+    /* Set the video mode to programs think they're running in an 80-column mode. */
+    sshiftmod = ST_HIGH;
+    /* Prevent resolution changes. */
+    rez_was_hacked = TRUE;
+#else
     rez_was_hacked = FALSE; /* initial assumption */
+#endif
 }
 
 /* Initialize the video address (mode is already set) */
