@@ -1182,6 +1182,14 @@ void duart_rs232_interrupt_handler_channel_a(void)
 {
     while(read_duart(DUART_SRA) & DUART_SR_RXRDY) {
         push_serial_iorec(&iorecDUARTA.in, read_duart(DUART_RHRA));
+        if (iorecDUARTA.flowctrl == FLOW_CTRL_HARD || iorecDUARTA.flowctrl == FLOW_CTRL_BOTH) {
+            IOREC *in = &iorecDUARTA.in;
+            WORD size = (WORD)(in->tail - in->head);
+            if (size < 0) size += in->size;
+            if (size >= in->high) { /* We're at or above the high watermark. Turn off RTS. */
+                write_duart(DUART_CLROPR, DUART_OP0_RTS);
+            }
+        }
     }
 }
 
@@ -1234,9 +1242,27 @@ void duart_rs232_enable_interrupt(void)
     duart_init_interrupts_common();
 }
 
-static void init_duart(void)
+void init_duart(void)
 {
     write_duart(DUART_OPCR, 0);
+
+    write_duart(DUART_CRA, DUART_CR_TX_DISABLED | DUART_CR_RX_DISABLED);
+    write_duart(DUART_CRA, DUART_CR_RESET_TX);
+    write_duart(DUART_CRA, DUART_CR_RESET_RX);
+    write_duart(DUART_CRA, DUART_CR_RESET_ERROR);
+    write_duart(DUART_CRA, DUART_CR_BKCHGINT);
+    write_duart(DUART_CRA, DUART_CR_RESET_MR);
+    rsconfDUARTA(DEFAULT_BAUDRATE, 0, 0x88, 0, 0, 0);
+
+#if CONF_WITH_DUART_CHANNEL_B
+    write_duart(DUART_CRB, DUART_CR_TX_DISABLED | DUART_CR_RX_DISABLED);
+    write_duart(DUART_CRB, DUART_CR_RESET_TX);
+    write_duart(DUART_CRB, DUART_CR_RESET_RX);
+    write_duart(DUART_CRB, DUART_CR_RESET_ERROR);
+    write_duart(DUART_CRB, DUART_CR_BKCHGINT);
+    write_duart(DUART_CRB, DUART_CR_RESET_MR);
+    rsconfDUARTB(DEFAULT_BAUDRATE, 0, 0x88, 0, 0, 0);
+#endif
 }
 
 /*
@@ -1251,7 +1277,18 @@ static LONG bconstatDUARTA(void)
 
 static LONG bconinDUARTA(void)
 {
-    return bconin_iorec(&iorecDUARTA);
+    IOREC *in = &iorecDUARTA.in;
+
+    LONG ch = bconin_iorec(&iorecDUARTA);
+    if (iorecDUARTA.flowctrl == FLOW_CTRL_HARD || iorecDUARTA.flowctrl == FLOW_CTRL_BOTH) {
+        WORD size = (WORD)(in->tail - in->head);
+        if (size < 0) size += in->size;
+        if (size <= in->low) {
+            /* Buffer has emptied below low watermark, so we can turn on receive again but asserting RTS. */
+            write_duart(DUART_SETOPR, DUART_OP0_RTS);
+        }
+    }
+    return ch;
 }
 
 static LONG bcostatDUARTA(void) {
@@ -1465,11 +1502,6 @@ void init_serport(void)
 #if BCONMAP_AVAILABLE
     memcpy(&iorec_dummy,&iorec_init,sizeof(EXT_IOREC));
     init_bconmap();
-#endif
-
-#if CONF_WITH_DUART
-    if (has_duart)
-        init_duart();
 #endif
 
 #ifdef MACHINE_AMIGA
