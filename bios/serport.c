@@ -1245,22 +1245,23 @@ void duart_rs232_enable_interrupt(void)
 void init_duart(void)
 {
     write_duart(DUART_OPCR, 0);
+    write_duart(DUART_IMR, 0); /* Mask off all interrupts */
 
     write_duart(DUART_CRA, DUART_CR_TX_DISABLED | DUART_CR_RX_DISABLED);
-    write_duart(DUART_CRA, DUART_CR_RESET_TX);
-    write_duart(DUART_CRA, DUART_CR_RESET_RX);
-    write_duart(DUART_CRA, DUART_CR_RESET_ERROR);
-    write_duart(DUART_CRA, DUART_CR_BKCHGINT);
-    write_duart(DUART_CRA, DUART_CR_RESET_MR);
+    write_duart(DUART_CRA, DUART_CR_RESET_TX);    /* Reset transmitter. */
+    write_duart(DUART_CRA, DUART_CR_RESET_RX);    /* Reset receiver. */
+    write_duart(DUART_CRA, DUART_CR_RESET_ERROR); /* Reset error status. */
+    write_duart(DUART_CRA, DUART_CR_BKCHGINT);    /* Reset BREAK change interrupt. */
+    write_duart(DUART_CRA, DUART_CR_RESET_MR);    /* Reset register index register. */
     rsconfDUARTA(DEFAULT_BAUDRATE, 0, 0x88, 0, 0, 0);
 
 #if CONF_WITH_DUART_CHANNEL_B
     write_duart(DUART_CRB, DUART_CR_TX_DISABLED | DUART_CR_RX_DISABLED);
-    write_duart(DUART_CRB, DUART_CR_RESET_TX);
-    write_duart(DUART_CRB, DUART_CR_RESET_RX);
-    write_duart(DUART_CRB, DUART_CR_RESET_ERROR);
-    write_duart(DUART_CRB, DUART_CR_BKCHGINT);
-    write_duart(DUART_CRB, DUART_CR_RESET_MR);
+    write_duart(DUART_CRB, DUART_CR_RESET_TX); /* Reset transmitter. */
+    write_duart(DUART_CRB, DUART_CR_RESET_RX); /* Reset receiver. */
+    write_duart(DUART_CRB, DUART_CR_RESET_ERROR); /* Reset error status. */
+    write_duart(DUART_CRB, DUART_CR_BKCHGINT); /* Reset BREAK change interrupt. */
+    write_duart(DUART_CRB, DUART_CR_RESET_MR); /* Reset register index  register. */
     rsconfDUARTB(DEFAULT_BAUDRATE, 0, 0x88, 0, 0, 0);
 #endif
 }

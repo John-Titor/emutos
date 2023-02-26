@@ -152,5 +152,6 @@
 
 void write_duart(UBYTE reg, UBYTE val);
 UBYTE read_duart(UBYTE reg);
+void init_duart(void);
 
 #endif

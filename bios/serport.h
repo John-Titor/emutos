@@ -107,7 +107,6 @@ void duart_rs232_interrupt_handler_channel_b(void);
 void duart_rs232_enable_interrupt(void);
 void duart_rs232_interrupt_handler_channel_a(void);
 void duart_init_system_timer(void);
-void init_duart(void);
 #endif
 
 #if BCONMAP_AVAILABLE
