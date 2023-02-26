@@ -684,24 +684,8 @@ void machine_init(void)
  #endif
 
  #if CONF_WITH_DUART
-    if (has_duart)
-    {
-        write_duart(DUART_CRA, DUART_CR_RESET_MR); /* Reset register index  register. */
-        write_duart(DUART_CRA, DUART_CR_RESET_RX); /* Reset receiver. */
-        write_duart(DUART_CRA, DUART_CR_RESET_TX); /* Reset transmitter. */
-        write_duart(DUART_CRA, DUART_CR_RESET_ERROR); /* Reset error status. */
-        write_duart(DUART_CRA, DUART_CR_BKCHGINT); /* Reset BREAK change interrupt. */
+    if (has_duart) init_duart();
 
- #if CONF_WITH_DUART_CHANNEL_B
-        write_duart(DUART_CRB, DUART_CR_RESET_MR); /* Reset register index  register. */
-        write_duart(DUART_CRB, DUART_CR_RESET_RX); /* Reset receiver. */
-        write_duart(DUART_CRB, DUART_CR_RESET_TX); /* Reset transmitter. */
-        write_duart(DUART_CRB, DUART_CR_RESET_ERROR); /* Reset error status. */
-        write_duart(DUART_CRB, DUART_CR_BKCHGINT); /* Reset BREAK change interrupt. */
- #endif /* CONF_WITH_DUART_CHANNEL_B */
-
-        write_duart(DUART_IMR, 0); /* Mask off all interrupts */
-    }
  #endif /* CONF_WITH_DUART */
 
 #endif /* CONF_WITH_RESET */

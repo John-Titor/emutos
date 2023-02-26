@@ -319,10 +319,7 @@ static void bios_init(void)
 #endif
 
 #if CONF_WITH_DUART
-    if (has_duart) {
-        init_duart();
-        boot_status |= DUART_AVAILABLE;
-    }
+    if (has_duart) boot_status |= DUART_AVAILABLE;
 #endif
 
     /*
