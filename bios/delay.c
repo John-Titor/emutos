@@ -76,6 +76,7 @@ void init_delay(void)
             break;
         case 40:
         case 30:            /* assumes 68030 */
+        case 20:
             loopcount_1_msec = LOOPS_68030;
             break;
         default:            /* assumes 68000 */
