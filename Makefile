@@ -61,6 +61,7 @@ help:
 	@echo "amigaflop $(EMUTOS_ADF), EmuTOS RAM as Amiga boot floppy"
 	@echo "amigaflopvampire $(EMUTOS_VAMPIRE_ADF), EmuTOS RAM as Amiga boot floppy optimized for Vampire V2"
 	@echo "lisaflop $(EMUTOS_DC42), EmuTOS RAM as Apple Lisa boot floppy"
+	@echo "pt68k5 $(EMUTOS_PT68K5), EmuTOS for PT68K5"
 	@echo "m548x-dbug $(SREC_M548X_DBUG), EmuTOS-RAM for dBUG on ColdFire Evaluation Boards"
 	@echo "m548x-bas  $(SREC_M548X_BAS), EmuTOS for BaS_gcc on ColdFire Evaluation Boards"
 	@echo "m548x-prg  emutos.prg, a RAM tos for ColdFire Evaluation Boards with BaS_gcc"
@@ -305,6 +306,7 @@ bios_src +=  memory.S processor.S vectors.S aciavecs.S bios.c xbios.c acsi.c \
              pmmu030.c 68040_pmmu.S \
              amiga.c amiga2.S spi_vamp.c \
              lisa.c lisa2.S \
+             pt68k5.c \
              delay.c delayasm.S sd.c memory2.c bootparams.c scsi.c nova.c \
              dsp.c dsp2.S \
              scsidriv.c
@@ -908,6 +910,40 @@ lisaboot.img: obj/lisaboot.o obj/lisautil.o obj/bootram.o
 	$(LD) $+ $(PCREL_LDFLAGS) -o $@
 
 obj/lisaboot.o: obj/ramtos.h
+
+#
+# pt68k5
+#
+
+EMUTOS_PT68K5 = emutosk5.rom
+PT68K5_DEFS =
+CPUFLAGS = -m68020
+TOCLEAN += $(EMUTOS_PT68K5)
+
+.PHONY: pt68k5
+NODEP += pt68k5
+pt68k5: UNIQUE = $(COUNTRY)
+pt68k5: OPTFLAGS = $(SMALL_OPTFLAGS)
+pt68k5: override DEF += -DTARGET_PT68K5 $(PT68K5_DEFS)
+pt68k5: WITH_AES=1
+pt68k5:
+	$(MAKE) CPUFLAGS='$(CPUFLAGS)' DEF='$(DEF)' OPTFLAGS='$(OPTFLAGS)' WITH_AES=$(WITH_AES) UNIQUE=$(UNIQUE) EMUTOS_PT68K5=$(EMUTOS_PT68K5) $(EMUTOS_PT68K5)
+	@printf "$(LOCALCONFINFO)"
+
+$(EMUTOS_PT68K5): emutos.img pt68k5boot.img pt68k5_installboot
+	$(OBJCOPY) -I binary -O binary emutos.img $@
+
+pt68k5boot.img: obj/pt68k5boot.o obj/pt68k5boot2.o obj/doprintf.o
+	$(LD) $+ -Wl,--oformat=binary,-Ttext=0x00200000,--entry=0x00200000 -o $@
+
+obj/pt68k5boot.o: obj/ramtos.h
+
+TOCLEAN += pt68k5_installboot
+NODEP += pt68k5_installboot
+pt68k5_installboot: tools/pt68k5_installboot.c
+	$(NATIVECC) $< -o $@
+
+
 
 #
 # localisation support: create bios/ctables.h include/i18nconf.h
