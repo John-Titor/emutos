@@ -40,6 +40,7 @@
 #include "serport.h"
 #include "amiga.h"
 #include "lisa.h"
+#include "pt68k5.h"
 
 
 /* forward declarations */
@@ -1103,6 +1104,11 @@ void kbd_init(void)
     shifty = 0;        /* initial state of modifiers */
 
     mouse_packet[0] = 0;    /* not doing mouse emulation */
+
+#ifdef MACHINE_PT68K5
+    /* need to do this after conterm is set */
+    pt68k5_kbd_init();
+#endif
 
     bioskeys();
 }

@@ -416,6 +416,8 @@ static void setvalue_mch(void)
     }
     else
         cookie_mch = MCH_ST;
+#elif defined(MACHINE_PT68K5)
+    cookie_mch = MCH_PT68K5;
 #else
     cookie_mch = MCH_NOHARD;
 #endif /* CONF_ATARI_HARDWARE */
@@ -847,6 +849,8 @@ static const char * guess_machine_name(void)
         return "Atari TT";
     case MCH_FALCON:
         return "Atari Falcon";
+    case MCH_PT68K5:
+        return "PT68K5";
     default:
         return "unknown";
     }

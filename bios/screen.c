@@ -36,6 +36,7 @@
 #include "bdosbind.h"
 #include "amiga.h"
 #include "lisa.h"
+#include "pt68k5.h"
 #include "nova.h"
 
 void detect_monitor_change(void);
@@ -628,6 +629,10 @@ void screen_init_mode(void)
     lisa_screen_init();
 #endif
 
+#ifdef MACHINE_PT68K5
+    pt68k5_screen_init();
+#endif
+
 #ifdef CONF_SERIAL_CONSOLE
     /* Set the video mode to programs think they're running in an 80-column mode. */
     sshiftmod = ST_HIGH;
@@ -811,6 +816,10 @@ void screen_get_current_mode_info(UWORD *planes, UWORD *hz_rez, UWORD *vt_rez)
     *planes = 1;
     *hz_rez = 720;
     *vt_rez = 364;
+#elif defined(MACHINE_PT68K5)
+    *planes = 1;
+    *hz_rez = 640;
+    *vt_rez = 480;
 #else
     atari_get_current_mode_info(planes, hz_rez, vt_rez);
 #endif

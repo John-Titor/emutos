@@ -33,6 +33,7 @@
 #include "../bdos/bdosstub.h"
 #include "amiga.h"
 #include "lisa.h"
+#include "pt68k5.h"
 #include "disk.h"
 #include "acsi.h"
 
@@ -1225,6 +1226,12 @@ void settime(LONG time)
     {
         /* Dummy case for conditional compilation */
     }
+#ifdef MACHINE_PT68K5
+    else if (TRUE)
+    {
+        return pt68k5_setdt((ULONG)time);
+    }
+#endif
 #if CONF_WITH_NVRAM
     else if (has_nvram)
     {
@@ -1281,6 +1288,12 @@ LONG gettime(void)
         return lisa_getdt();
     }
 #endif /* MACHINE_LISA */
+#ifdef MACHINE_PT68K5
+    else if (TRUE)
+    {
+        return (LONG)pt68k5_getdt();
+    }
+#endif
 #if CONF_WITH_NVRAM
     else if (has_nvram)
     {
