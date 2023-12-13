@@ -31,3 +31,4 @@
 /local.mk
 /dsm.txt
 /tests/*/*.tos
+/pt68k5_installboot
