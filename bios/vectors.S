@@ -804,44 +804,38 @@ _sccb_es_interrupt:
 _duart_interrupt:
 #ifdef __mcoldfire__
         lea     -16(sp),sp
-        movem.l d0-d1/a0-a1,(sp)
+        movem.l d0-d2/a0-a2,(sp)
 #else
-        movem.l d0-d1/a0-a1,-(sp)
+        movem.l d0-d2/a0-a2,-(sp)
 #endif
-        lea     DUART_BASE, a0
-        move.b  11(a0), d0            // grab the Interrupt Status Register
+        lea     DUART_BASE, a2        // DUART_BASE remains in a2
+        move.b  11(a2), d2            // ISR remains in d2
 #if CONF_DUART_TIMER_C
-        btst.b  #3, d0                // Is Counter Ready (bit 3) set?
-        beq     duart_check_rx_2      //    No, skip timer handling code
+        btst.b  #3, d2                // Is Counter Ready (bit 3) set?
+        beq     duart_no_timer        //    No, skip timer handling code
 
 // Call vector_5ms
 // As it will return with RTE, we must setup a proper stack frame
 #if CONF_WITH_ADVANCED_CPU
         move.w  #0, -(sp)             // frame type 0, no vector number
 #endif // CONF_WITH_ADVANCED_CPU
-        pea     duart_timer_done(pc)  // Return address
+        pea     duart_timer_ret(pc)   // Return address
         move.w  sr, -(sp)             // Status Register
-
         .extern _vector_5ms
         move.l  _vector_5ms, a0
-        jmp     (a0)                  // Call the 200 Hz system timer
-
-duart_timer_done:
+        jmp     (a0)                  // Call the 200Hz system timer
+duart_timer_ret:
 #if CONF_WITH_ADVANCED_CPU
         cmpi.b  #10,_mcpu+3
-        bge     duart_check_rx
+        bge     duart_timer_done
         addq.l  #2,sp                 // 68000 doesn't pop info word
 #endif // CONF_WITH_ADVANCED_CPU
-
+duart_timer_done:
+        tst.b   0x1f(a2)              // ack timer interrupt
+duart_no_timer:
 #endif // CONF_DUART_TIMER_C
-duart_check_rx:
-        lea     DUART_BASE, a0
- #if CONF_DUART_TIMER_C
-        tst.b   0x1f(a0)              // Send stop counter to ack timer interrupt. Does not actually stop since in timer mode.
- #endif
-duart_check_rx_2:
-        move.b  11(a0), d0            // Get the ISR again
-        btst.b  #1, d0                // Is the Chan A Receive Ready (bit 1) set?
+
+        btst.b  #1, d2                // Is the Chan A Receive Ready (bit 1) set?
 #ifndef CONF_WITH_DUART_CHANNEL_B
         beq     duart_intr_done       //    No, skip serial handling code
 #else
@@ -850,19 +844,17 @@ duart_check_rx_2:
         jbsr    _duart_rs232_interrupt_handler_channel_a
 #ifdef CONF_WITH_DUART_CHANNEL_B
 duart_check_channel_b:
-        lea     DUART_BASE, a0
-        move.b  11(a0), d0            // Get the ISR again
-        btst.b  #5, d0                // Is the Chan B Receive Ready (bit 5) set?
+        btst.b  #5, d2                // Is the Chan B Receive Ready (bit 5) set?
         beq     duart_intr_done
 
         jbsr    _duart_rs232_interrupt_handler_channel_b
 #endif
 duart_intr_done:
 #ifdef __mcoldfire__
-        movem.l (sp),d0-d1/a0-a1
+        movem.l (sp),d0-d2/a0-a2
         lea     16(sp),sp
 #else
-        movem.l (sp)+,d0-d1/a0-a1
+        movem.l (sp)+,d0-d2/a0-a2
 #endif
         rte
 
