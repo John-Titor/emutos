@@ -810,19 +810,30 @@ _duart_interrupt:
 #endif
         lea     DUART_BASE, a0
         move.b  11(a0), d0            // grab the Interrupt Status Register
- #if CONF_DUART_TIMER_C
+#if CONF_DUART_TIMER_C
         btst.b  #3, d0                // Is Counter Ready (bit 3) set?
         beq     duart_check_rx_2      //    No, skip timer handling code
 
 // Call vector_5ms
 // As it will return with RTE, we must setup a proper stack frame
-        pea     duart_check_rx(pc)    // Return address
+#if CONF_WITH_ADVANCED_CPU
+        move.w  #0, -(sp)             // frame type 0, no vector number
+#endif // CONF_WITH_ADVANCED_CPU
+        pea     duart_timer_done(pc)  // Return address
         move.w  sr, -(sp)             // Status Register
 
         .extern _vector_5ms
         move.l  _vector_5ms, a0
         jmp     (a0)                  // Call the 200 Hz system timer
- #endif
+
+duart_timer_done:
+#if CONF_WITH_ADVANCED_CPU
+        cmpi.b  #10,_mcpu+3
+        bge     duart_check_rx
+        addq.l  #2,sp                 // 68000 doesn't pop info word
+#endif // CONF_WITH_ADVANCED_CPU
+
+#endif // CONF_DUART_TIMER_C
 duart_check_rx:
         lea     DUART_BASE, a0
  #if CONF_DUART_TIMER_C
