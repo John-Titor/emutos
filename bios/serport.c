@@ -1204,14 +1204,18 @@ void duart_rs232_interrupt_handler_channel_b(void)
 
 static void duart_init_interrupts_common(void)
 {
-    LONG *vector_addr;
+    volatile PFVOID *vector_addr;
     /* Disable DUART interrupts before configuration */
     write_duart(DUART_IMR, 0);
 
     /* Set the interrupt vector */
-    vector_addr = (LONG *)((64L + 61L) * 4L);
-    *vector_addr = (LONG) duart_interrupt;
+#ifdef CONF_DUART_AUTOVECTOR
+    vector_addr = &VEC_LEVEL1 + (CONF_DUART_AUTOVECTOR - 1);
+#else
+    vector_addr = (volatile PFVOID *)((64L + 61L) * 4L);
     write_duart(DUART_IVR, 64+61);
+#endif
+    *vector_addr = (PFVOID) duart_interrupt;
 
     UBYTE IMR_value = DUART_IMR_RXRDY_A;
 
