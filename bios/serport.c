@@ -1211,7 +1211,12 @@ static ULONG rsconf_duart(UBYTE port, EXT_IOREC *iorec, WORD baud, WORD ctrl, WO
 void duart_rs232_interrupt_handler_channel_a(void)
 {
     while(read_duart(DUART_SRA) & DUART_SR_RXRDY) {
-        push_serial_iorec(&iorecDUARTA.in, read_duart(DUART_RHRA));
+        UBYTE data = read_duart(DUART_RHRA);
+        push_serial_iorec(&iorecDUARTA.in, data);
+#if CONF_SERIAL_CONSOLE && !CONF_SERIAL_CONSOLE_POLLING_MODE
+        /* And append a new IOREC value into the IKBD buffer */
+        push_ascii_ikbdiorec(data);
+#endif
         if (iorecDUARTA.flowctrl == FLOW_CTRL_HARD || iorecDUARTA.flowctrl == FLOW_CTRL_BOTH) {
             IOREC *in = &iorecDUARTA.in;
             WORD size = (WORD)(in->tail - in->head);
