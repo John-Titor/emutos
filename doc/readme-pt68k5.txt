@@ -25,7 +25,7 @@ console mode. See the EmuTOS documentation for build instructions.
 Full GUI Config
 - - - - - - - -
 Requires an ET4000 card supported by MONK5, an XT or supported AT keyboard +
-adapter, and a 3-button Logitech or Mouse Systems mouse. 
+adapter, and a supported serial mouse.
 
 Connect the mouse to COM2. COM1 is not used. COM3/4 are available as Atari
 serial ports.
@@ -122,7 +122,8 @@ this is planned.
 Mice
 - -
 Only three-button serial mice using the Mouse Systems protocol are currently
-supported. Adding support for Microsoft serial mice would not be difficult.
+known to work. Experimental support for Microsoft-protocol mice is in the
+system but has not been tested.
 
 Video
 - - -
@@ -150,7 +151,7 @@ Supported PT68K5 hardware
 - ET4000 video
 
 Planned support:
-- Microsoft serial mouse
+- Microsoft-compatible serial mouse (implemented, untested)
 - Simultaneous internal and XTIDE drives
 - Other IDE cards
 
