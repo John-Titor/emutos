@@ -24,6 +24,8 @@
  */
 
 #include "emutos.h"
+#include "asm.h"
+#include "delay.h"
 #include "pt68k5.h"
 #include "bios.h"
 #include "ikbd.h"
@@ -223,11 +225,10 @@ static void pt68k5_kbd_intr(void)
 
 }
 
-static void pt68k5_mouse_intr(void)
+static void pt68k5_mouse_mousesys_intr(SBYTE data)
 {
     static SBYTE phase;
     static SBYTE packet[3];
-    SBYTE data = DUART_REG(DUART_RHRB);
 
     KDEBUG(("ms %02x %02x\n", phase, data));
 
@@ -246,7 +247,9 @@ static void pt68k5_mouse_intr(void)
         0xf8 | 0x0, /* --- : -- */
     };
 
-    /* mouse systems 5-byte protocol */
+    /*
+     * Mouse systems 5-byte protocol.
+     */
     switch(phase) {
     default:
         /* expecting a sync byte */
@@ -274,6 +277,41 @@ static void pt68k5_mouse_intr(void)
     }
 }
 
+static void pt68k5_mouse_microsoft_intr(SBYTE data)
+{
+    static SBYTE phase;
+    static SBYTE packet[3];
+
+    /*
+     * Microsoft 3-byte protocol. Should work with Logitech 4-byte extension
+     * but the middle-button data will be ignored.
+     */
+    switch (phase) {
+    default:
+        /* expecting a sync byte */
+        if ((data & 0x40) != 0x40) {
+            /* not a sync byte */
+            return;
+        }
+        packet[0] = 0xf8 | ((data >> 4) & 0x3);
+        packet[1] = (data << 6) & 0xc0;
+        packet[2] = (data << 4) & 0xc0;
+        phase = 1;
+        break;
+    case 1:
+        packet[1] = (packet[1] & 0xc0) | (data & 0x3f);
+        phase = 2;
+        break;
+    case 2:
+        packet[2] = (packet[2] & 0xc0) | (data & 0x3f);
+        call_mousevec(packet);
+        phase = 0;
+        break;
+    }
+}
+
+static void (*mousevec)(SBYTE);
+
 __attribute__((interrupt))
 static void pt68k5_kbdif_intr(void)
 {
@@ -293,7 +331,7 @@ static void pt68k5_kbdif_intr(void)
     }
 
     if (isr & DUART_IMR_RXRDY_B) {
-        pt68k5_mouse_intr();
+        mousevec(DUART_REG(DUART_RHRB));
     }
 
     if (isr & DUART_IMR_COUNTER_READY) {
@@ -308,6 +346,7 @@ static void pt68k5_kbdif_intr(void)
 void pt68k5_kbd_init(void)
 {
 #if CONF_PT68K5_KBD_MOUSE
+    UBYTE count;
 
     DUART_REG(DUART_OPCR) = 0;
     DUART_REG(DUART_CLROPR) = 0xff;     /* might need a ~100ms delay here to allow mouse to reset */
@@ -328,19 +367,42 @@ void pt68k5_kbd_init(void)
     DUART_REG(DUART_CRB) = DUART_CR_RESET_ERROR;
     DUART_REG(DUART_CRB) = DUART_CR_BKCHGINT;
 
-    /* configure channel B for serial mouse @ 1200n71 */
+    /* configure timer for ~60Hz to emulate vertical blanking interrupt, as IRQ9 is not available    */
+    DUART_REG(DUART_CTLR) = 0x55;
+    DUART_REG(DUART_CTUR) = 0x07;
+
+    /* configure channel B for Microsoft serial mouse @ 1200n71 */
     DUART_REG(DUART_CSRB) = 0x66;
     DUART_REG(DUART_CRB) = DUART_CR_RESET_MR;
-    DUART_REG(DUART_MRB) = DUART_MR_PM_NONE | DUART_MR_BC_8;
+    DUART_REG(DUART_MRB) = DUART_MR_PM_NONE | DUART_MR_BC_7;
     DUART_REG(DUART_MRB) = DUART_MR_CM_NORMAL | DUART_MR_SB_STOP_BITS_1;
     DUART_REG(DUART_CRB) = DUART_CR_RX_ENABLED;
 
     /* turn on RTS / DTR to power up the mouse - expect MS mouse to send 0x45 at power-on */
     DUART_REG(DUART_SETOPR) = 0x0a;   /* OP1 = RTS, OP3 = DTR */
 
-    /* configure timer for ~60Hz to emulate vertical blanking interrupt, as IRQ9 is not available    */
-    DUART_REG(DUART_CTLR) = 0x55;
-    DUART_REG(DUART_CTUR) = 0x07;
+    /* give the mouse a little time to sign on */
+    for (count = 0; count < 10; count++) {
+        delay_loop(loopcount_1_msec * 10);
+        if ((DUART_REG(DUART_ISR) & DUART_IMR_RXRDY_B) && (DUART_REG(DUART_RHRB) == 'M')) {
+            KDEBUG(("Microsoft-compatible mouse detected\n"));
+            mousevec = pt68k5_mouse_microsoft_intr;
+            break;
+        }
+    }
+    if (mousevec != pt68k5_mouse_microsoft_intr) {
+        mousevec = pt68k5_mouse_mousesys_intr;
+
+        /* configure channel B for Mouse Systems serial mouse @ 1200n81 */
+        DUART_REG(DUART_CRB) = DUART_CR_TX_DISABLED | DUART_CR_RX_DISABLED;
+        DUART_REG(DUART_CRB) = DUART_CR_RESET_RX;
+        DUART_REG(DUART_CRB) = DUART_CR_BKCHGINT;
+        DUART_REG(DUART_CSRB) = 0x66;
+        DUART_REG(DUART_CRB) = DUART_CR_RESET_MR;
+        DUART_REG(DUART_MRB) = DUART_MR_PM_NONE | DUART_MR_BC_8;
+        DUART_REG(DUART_MRB) = DUART_MR_CM_NORMAL | DUART_MR_SB_STOP_BITS_1;
+        DUART_REG(DUART_CRB) = DUART_CR_RX_ENABLED;
+    }
 
     /* attach interrupt handler */
     VEC_LEVEL5 = pt68k5_kbdif_intr;
@@ -361,6 +423,7 @@ void pt68k5_screen_init(void)
 {
     /* more or less correct */
     sshiftmod = ST_HIGH;
+    defshiftmod = ST_HIGH;
 }
 
 #endif /* MACHINE_PT68K5 */
