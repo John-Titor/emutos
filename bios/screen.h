@@ -105,4 +105,14 @@ void setpalette(const UWORD *palettePtr);
 WORD setcolor(WORD colorNum, WORD color);
 void vsync(void);
 
+#if CONF_WITH_VIDEL || CONF_WITH_CUSTOM_XBIOS_VIDEO
+WORD vsetmode(WORD mode);
+WORD vmontype(void);
+WORD vsetsync(WORD external);
+LONG vgetsize(WORD mode);
+WORD vsetrgb(WORD index,WORD count,const ULONG *rgb);
+WORD vgetrgb(WORD index,WORD count,ULONG *rgb);
+WORD vfixmode(WORD mode);
+#endif /* CONF_WITH_VIDEL || CONF_WITH_CUSTOM_XBIOS_VIDEO */
+
 #endif /* SCREEN_H */

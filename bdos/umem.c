@@ -334,7 +334,7 @@ ret:
     return ret_value;
 }
 
-#if CONF_WITH_VIDEL
+#if CONF_WITH_VIDEL || CONF_WITH_SREALLOC
 /*
  *  srealloc - Function 0x15 (Srealloc)
  *
@@ -361,8 +361,10 @@ void *srealloc(long amount)
     LONG available;
     BOOL realloc;   /* TRUE iff reallocation is possible */
 
+#if CONF_WITH_VIDEL
     if (!has_videl)
         return (void *)EINVFN;
+#endif
 
     if (video_ram_size == 0)    /* unspecified */
         return NULL;
@@ -421,7 +423,7 @@ void *srealloc(long amount)
 
     return (void *)video_ram_addr;
 }
-#endif
+#endif /* CONF_WITH_VIDEL || CONF_WITH_SREALLOC */
 
 #if CONF_WITH_ALT_RAM
 

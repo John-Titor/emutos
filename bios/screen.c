@@ -36,12 +36,12 @@
 #include "bdosbind.h"
 #include "amiga.h"
 #include "lisa.h"
+#include "qemu.h"
 #include "nova.h"
 
 void detect_monitor_change(void);
-static void setphys(const UBYTE *addr);
 
-#if CONF_WITH_VIDEL
+#if CONF_WITH_VIDEL || CONF_WITH_CUSTOM_XBIOS_VIDEO
 LONG video_ram_size;        /* these are used by Srealloc() */
 void *video_ram_addr;
 #endif
@@ -483,6 +483,7 @@ static BOOL get_default_palmode(void)
  */
 
 /* Initialize the video mode (address will be done later) */
+OVERRIDEABLE
 void screen_init_mode(void)
 {
 #if CONF_WITH_ATARI_VIDEO
@@ -646,7 +647,7 @@ void screen_init_address(void)
     screen_start = balloc_stram(vram_size, TRUE);
 #endif /* CONF_VRAM_ADDRESS */
 
-#if CONF_WITH_VIDEL
+#if CONF_WITH_VIDEL || CONF_WITH_CUSTOM_XBIOS_VIDEO
     video_ram_size = vram_size;     /* these are used by Srealloc() */
     video_ram_addr = screen_start;
 #endif
@@ -677,6 +678,7 @@ void set_rez_hacked(void)
  *
  * returns 1 iff TRUE
  */
+OVERRIDEABLE
 int rez_changeable(void)
 {
     if (rez_was_hacked)
@@ -699,6 +701,7 @@ int rez_changeable(void)
 }
 
 /* get monitor type (same encoding as VgetMonitor()) */
+OVERRIDEABLE
 WORD get_monitor_type(void)
 {
 #if CONF_WITH_VIDEL
@@ -740,6 +743,7 @@ static const struct video_mode vmode_table[] = {
  * because some programs (e.g. NVDI) rely on this and write past what
  * should be the end of screen memory.
  */
+OVERRIDEABLE
 ULONG calc_vram_size(void)
 {
 #ifdef MACHINE_AMIGA
@@ -794,6 +798,7 @@ static void atari_get_current_mode_info(UWORD *planes, UWORD *hz_rez, UWORD *vt_
     }
 }
 
+OVERRIDEABLE
 void screen_get_current_mode_info(UWORD *planes, UWORD *hz_rez, UWORD *vt_rez)
 {
     MAYBE_UNUSED(atari_get_current_mode_info);
@@ -814,6 +819,7 @@ void screen_get_current_mode_info(UWORD *planes, UWORD *hz_rez, UWORD *vt_rez)
  *
  * returns the palette (number of colour choices) for the current hardware
  */
+OVERRIDEABLE
 WORD get_palette(void)
 {
 #ifdef MACHINE_AMIGA
@@ -878,6 +884,7 @@ static __inline__ void get_std_pixel_size(WORD *width,WORD *height)
  * the value from getrez(), since this may be inaccurate for non-standard
  * hardware.
  */
+OVERRIDEABLE
 void get_pixel_size(WORD *width,WORD *height)
 {
 #ifdef MACHINE_AMIGA
@@ -1024,7 +1031,7 @@ static WORD atari_setcolor(WORD colorNum, WORD color)
 #endif /* CONF_WITH_ATARI_VIDEO */
 
 /* hardware independent xbios routines */
-
+OVERRIDEABLE
 const UBYTE *physbase(void)
 {
 #ifdef MACHINE_AMIGA
@@ -1041,7 +1048,8 @@ const UBYTE *physbase(void)
 
 /* Set physical screen address */
 
-static void setphys(const UBYTE *addr)
+OVERRIDEABLE
+void setphys(const UBYTE *addr)
 {
     KDEBUG(("setphys(%p)\n", addr));
 
@@ -1069,7 +1077,6 @@ WORD getrez(void)
 #endif
 }
 
-
 /*
  * setscreen(): implement the Setscreen() xbios call
  *
@@ -1085,6 +1092,7 @@ WORD getrez(void)
  *        setting the mode specified by 'videlmode' if appropriate)
  *      . reinitialises lineA and the VT52 console
  */
+OVERRIDEABLE
 WORD setscreen(UBYTE *logLoc, const UBYTE *physLoc, WORD rez, WORD videlmode)
 {
     WORD oldmode = 0;
@@ -1152,6 +1160,7 @@ WORD setscreen(UBYTE *logLoc, const UBYTE *physLoc, WORD rez, WORD videlmode)
     return oldmode;
 }
 
+OVERRIDEABLE
 void setpalette(const UWORD *palettePtr)
 {
 #ifdef ENABLE_KDEBUG
@@ -1176,6 +1185,7 @@ void setpalette(const UWORD *palettePtr)
  * on a TT, the h/w updates the corresponding TT palette registers
  * automagically.
  */
+OVERRIDEABLE
 WORD setcolor(WORD colorNum, WORD color)
 {
 #ifdef MACHINE_AMIGA
