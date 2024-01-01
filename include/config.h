@@ -583,6 +583,9 @@
 # ifndef CONF_WITH_IDE
 #  define CONF_WITH_IDE 1
 # endif
+# ifndef CONF_WITH_IDE_BYTESWAP
+#  define CONF_WITH_IDE_BYTESWAP 1
+# endif
 # ifndef CONF_WITH_UAE
 #  define CONF_WITH_UAE 1
 # endif
@@ -1146,6 +1149,14 @@
  */
 #ifndef CONF_WITH_IDE
 # define CONF_WITH_IDE 1
+#endif
+
+/*
+ * Set CONF_WITH_IDE_BYTESWAP if the IDE interface is naturally
+ * byteswapped.
+ */
+#ifndef CONF_WITH_IDE_BYTESWAP
+# define CONF_WITH_IDE_BYTESWAP 1
 #endif
 
 /*
