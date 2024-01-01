@@ -69,6 +69,7 @@ help:
 	@echo "prg256  $(EMU256_PRG), a RAM tos for ST/STe systems"
 	@echo "flop    $(EMUTOS_ST), a bootable floppy with RAM tos"
 	@echo "pak3    $(ROM_PAK3), suitable for PAK/3 systems"
+	@echo "qemu    $(ROM_QEMU), suitable for qemu-system-m68k -machine type=atarist"
 	@echo "cart    $(ROM_CARTRIDGE), EmuTOS as a diagnostic cartridge"
 	@echo "clean   remove temporary files"
 	@echo "Use '$(MAKE) help-develop' for development-oriented targets"
@@ -306,7 +307,7 @@ bios_src +=  memory.S processor.S vectors.S aciavecs.S bios.c xbios.c acsi.c \
              pmmu030.c 68040_pmmu.S \
              amiga.c amiga2.S spi_vamp.c \
              lisa.c lisa2.S \
-             pt68k5.c \
+             qemu.c qemu_pci.c qemu_video.c qemu2.S \
              delay.c delayasm.S sd.c memory2.c bootparams.c scsi.c nova.c \
              dsp.c dsp2.S \
              scsidriv.c
@@ -612,6 +613,57 @@ aranym:
 	@echo "# Building ARAnyM EmuTOS into $(ROM_PADDED)"
 	$(MAKE) CPUFLAGS='$(CPUFLAGS)' OPTFLAGS='$(OPTFLAGS)' DEF='$(DEF)' ROMSIZE=$(ROMSIZE) ROM_PADDED=$(ROM_PADDED) $(ROM_PADDED) REF_OS=TOS404
 	@printf "$(LOCALCONFINFO)"
+
+#
+# qemu Image
+#
+
+ROM_QEMU = emutos-qemu.img
+
+.PHONY: qemu
+NODEP += qemu
+qemu: override DEF += -DMACHINE_QEMU
+qemu: CPUFLAGS = -m68040
+qemu: ROMSIZE = 1024
+qemu: ROM_PADDED = $(ROM_QEMU)
+qemu: WITH_AES = 1
+qemu:
+	@echo "# Building QEMU EmuTOS into $(ROM_PADDED)"
+	$(MAKE) CPUFLAGS='$(CPUFLAGS)' OPTFLAGS='$(OPTFLAGS)' DEF='$(DEF)' WITH_AES=$(WITH_AES) ROMSIZE=$(ROMSIZE) ROM_PADDED=$(ROM_PADDED) $(ROM_PADDED)
+
+QEMU = ../../qemu/qemu/build/qemu-system-m68k
+QEMU_MEM = /tmp/atari.mem
+QEMU_MEM_SIZE = 64M
+QEMU_OPTS =
+QEMU_OPTS += -kernel $(ROM_QEMU)
+QEMU_OPTS += -machine type=atarist,memory-backend=virt.ram
+QEMU_OPTS += -m $(QEMU_MEM_SIZE)
+QEMU_OPTS += -object memory-backend-file,size=$(QEMU_MEM_SIZE),id=virt.ram,mem-path=$(QEMU_MEM),share=on,prealloc=on
+#QEMU_OPTS += -monitor stdio
+QEMU_OPTS += -serial mon:stdio
+QEMU_OPTS += -display sdl
+QEMU_OPTS += -device cirrus-vga
+QEMU_OPTS += -device usb-ehci
+#QEMU_OPTS += -device pci-serial-4x
+#QEMU_OPTS += -device rtl8139
+#QEMU_OPTS += -device sdhci-pci
+#QEMU_OPTS += -display none
+#QEMU_OPTS += -display cocoa,full-screen=off,zoom-to-fit=off
+QEMU_OPTS += -drive file=../disk.bin,if=ide,format=raw
+
+# trace single instructions - huge logfiles
+#QEMU_OPTS += -accel tcg,one-insn-per-tb=on,thread=single -d exec,cpu,in_asm -D /tmp/qemu.log
+#QEMU_OPTS += -nographic
+#QEMU_OPTS += -d trace:pci_cfg_'*' -D /tmp/qemu.log
+
+# load image and set explicit entrypoint
+#QEMU_OPTS += -device loader,file=$(ROM_QEMU),addr=0x00e00000,force-raw=on
+#QEMU_OPTS += -device loader,addr=0x00e00000,cpu-num=0
+
+qemu-run: qemu
+qemu-run:
+	rm -f $(QEMU_MEM)
+	$(QEMU) $(QEMU_OPTS)
 
 #
 # Diagnostic Cartridge Image
