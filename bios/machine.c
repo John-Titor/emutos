@@ -646,6 +646,7 @@ void machine_detect(void)
 /*
  * perform machine-specific initialisation
  */
+OVERRIDEABLE
 void machine_init(void)
 {
 #if !CONF_WITH_RESET
@@ -856,6 +857,7 @@ static const char * guess_machine_name(void)
     }
 }
 
+OVERRIDEABLE
 const char * machine_name(void)
 {
     MAYBE_UNUSED(guess_machine_name);
