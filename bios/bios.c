@@ -704,7 +704,8 @@ static void autoexec(void)
 #if CONF_WITH_SHUTDOWN
 
 /* Try to shutdown the machine. This may fail. */
-static void shutdown(void)
+OVERRIDEABLE
+void shutdown(void)
 {
 #if DETECT_NATIVE_FEATURES
     nf_shutdown();
@@ -720,6 +721,7 @@ static void shutdown(void)
 }
 
 /* Will shutdown() succeed ? */
+OVERRIDEABLE
 BOOL can_shutdown(void)
 {
 #if DETECT_NATIVE_FEATURES

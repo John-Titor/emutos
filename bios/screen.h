@@ -96,6 +96,7 @@ void set_rez_hacked(void);
 void screen_get_current_mode_info(UWORD *planes, UWORD *hz_rez, UWORD *vt_rez);
 
 /* hardware-independent xbios routines */
+void setphys(const UBYTE *addr);
 const UBYTE *physbase(void);
 UBYTE *logbase(void);
 WORD getrez(void);
