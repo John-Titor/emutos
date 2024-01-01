@@ -68,6 +68,7 @@ void panic(const char *fmt, ...) PRINTF_STYLE NORETURN;
 void halt(void) NORETURN;
 
 #if CONF_WITH_SHUTDOWN
+void shutdown(void);
 BOOL can_shutdown(void);
 #endif
 
