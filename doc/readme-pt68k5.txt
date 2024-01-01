@@ -2,7 +2,7 @@ EmuTOS - PT68K5 version
 =======================
 
 This EmuTOS version supports the the Peripheral Technology/CDS PT68K5 
-68020-based motherboard.
+68020-based motherboard: https://peripheraltech.com/PT68K5.htm
 
 Built Files
 -----------
@@ -94,6 +94,19 @@ The port attempts to replicate Atari system functionality in a compatible
 fashion. Well-written Atari programs will work as expected; games, demos and
 other software that attempts to use the Atari hardware directly will not.
 
+Compatibility Hints
+- - - - - - - - - -
+If EmuTOS crashes with a Bus Error, check the address that's being accessed.
+If it is above 0xffff_0000, it's almost certainly some software trying to 
+touch Atari hardware directly. You can check the ST memory map here to help
+work out what it's doing: 
+
+https://temlib.org/AtariForumWiki/index.php/Memory_Map_for_Atari_ST,STE,TT_and_Falcon
+
+Some typical offenders are NVDI 5.0, which tries to touch the ST Palette 
+register at 0xffff_8240, and GemBench which attempts to access the IKBD
+data register at 0xffff_fc02.
+
 Serial Console vs. Keyboard
 - - - - - - - - - - - - - -
 If using a serial console, connect to COM1 at 9600bps as normal. COM2 can be
@@ -140,8 +153,8 @@ specific to the ET4000.
 Supported PT68K5 hardware
 - - - - - - - - - - - - -
 
-- 68020/68881 CPU/FPU (25 MHz)
-- 4-128M RAM
+- 68020/68881 CPU/FPU
+- 64M RAM
 - Hardware realtime clock
 - Onboard IDE controller
 - PTI XTIDE controller
@@ -152,7 +165,6 @@ Supported PT68K5 hardware
 
 Planned support:
 - Microsoft-compatible serial mouse (implemented, untested)
-- Simultaneous internal and XTIDE drives
 - Other IDE cards
 
 Unlikely to be supported:
