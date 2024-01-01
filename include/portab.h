@@ -251,4 +251,10 @@ typedef LONG LONG_ALIAS MAY_ALIAS;
 # define OPTIMIZE_O3
 #endif
 
+/*
+ * Mark a function as being overrideable. This allows machine-specific code to
+ * supply a replacement version of the function.
+ */
+#define OVERRIDEABLE __attribute__((weak))
+
 #endif /* PORTAB_H */
