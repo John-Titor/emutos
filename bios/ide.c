@@ -130,13 +130,6 @@ struct IDE
 
 #endif /* MACHINE_M548X */
 
-/* the data register is naturally byteswapped on some hardware */
-#if defined(MACHINE_AMIGA)
-#define IDE_DATA_REGISTER_IS_BYTESWAPPED TRUE
-#else
-#define IDE_DATA_REGISTER_IS_BYTESWAPPED FALSE
-#endif
-
 /* set the following to 1 to use 32-bit data transfer */
 #if CONF_ATARI_HARDWARE
 #define IDE_32BIT_XFER TRUE
@@ -1346,7 +1339,7 @@ static LONG ata_identify(WORD dev)
     /* with twisted cable the response of IDENTIFY_DEVICE will be byte-swapped */
     if (ide_device_type(dev) == DEVTYPE_ATA) {
         ret = ide_read(IDE_CMD_IDENTIFY_DEVICE,ifnum,ifdev,0L,1,(UBYTE *)&identify,
-                       ifinfo[ifnum].twisted_cable != IDE_DATA_REGISTER_IS_BYTESWAPPED);
+                       ifinfo[ifnum].twisted_cable != CONF_WITH_IDE_BYTESWAP);
     } else ret = EUNDEV;
 
     if (ret < 0)
@@ -1428,7 +1421,7 @@ static LONG atapi_identify(WORD dev)
     if (ide_device_type(dev) == DEVTYPE_ATAPI)
     {
         ret = ide_read(IDE_CMD_ATAPI_IDENTIFY,ifnum,ifdev,0L,1,(UBYTE *)&identify,
-                       ifinfo[ifnum].twisted_cable != IDE_DATA_REGISTER_IS_BYTESWAPPED);
+                       ifinfo[ifnum].twisted_cable != CONF_WITH_IDE_BYTESWAP);
     } else ret = EUNDEV;
 
     if (ret < 0)
