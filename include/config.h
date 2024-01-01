@@ -1657,7 +1657,28 @@
 # define CONF_WITH_1FAT_SUPPORT 0
 #endif
 
+/*
+ * Set CONF_WITH_CUSTOM_XBIOS_VIDEO to allow machine-specific code to
+ * implement vsetmode, vmontype, vgetsync, vgetsize, vsetrgb, vgetrgb,
+ * vfixmode, setscreen.
+ *
+ * This implies CONF_WITH_SREALLOC.
+ */
+#ifndef CONF_WITH_CUSTOM_XBIOS_VIDEO
+# define CONF_WITH_CUSTOM_XBIOS_VIDEO 0
+#endif
+#if CONF_WITH_CUSTOM_XBIOS_VIDEO
+# undef CONF_WITH_SREALLOC
+# define CONF_WITH_SREALLOC 1
+#endif
 
+/*
+ * Set CONF_WITH_SREALLOC to implement the srealloc, which can be used
+ * to reallocate video memory when the display buffer changes size.
+ */
+#ifndef CONF_WITH_SREALLOC
+# define CONF_WITH_SREALLOC 0
+#endif
 
 /*
  * Set CONF_WITH_XBIOS_EXTENSION to cause xbios_do_unimpl() to be called

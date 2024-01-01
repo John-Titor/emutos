@@ -70,15 +70,6 @@ typedef struct {
 void initialise_falcon_palette(WORD mode);
 const VMODE_ENTRY *lookup_videl_mode(WORD mode);
 
-/* Public XBIOS functions */
-WORD vsetmode(WORD mode);
-WORD vmontype(void);
-WORD vsetsync(WORD external);
-LONG vgetsize(WORD mode);
-WORD vsetrgb(WORD index,WORD count,const ULONG *rgb);
-WORD vgetrgb(WORD index,WORD count,ULONG *rgb);
-WORD vfixmode(WORD mode);
-
 /* misc routines */
 WORD videl_check_moderez(WORD moderez);
 void videl_get_current_mode_info(UWORD *planes, UWORD *hz_rez, UWORD *vt_rez);
