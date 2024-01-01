@@ -149,7 +149,7 @@ struct IDE
 #define ide_put_and_incr(src,dst) asm volatile("move.w (%0)+,(%1)" : "=a"(src): "a"(dst), "0"(src));
 #endif
 
-#if CONF_ATARI_HARDWARE
+#if CONF_ATARI_HARDWARE || defined(MACHINE_QEMU)
 
 #ifdef MACHINE_FIREBEE
 #define NUM_IDE_INTERFACES  2
@@ -529,6 +529,8 @@ BOOL detect_ide(void)
     has_ide = 0x01;
 #elif defined(MACHINE_FIREBEE)
     has_ide = 0x03;
+#elif defined(MACHINE_QEMU)
+    has_ide = 0x01;
 #elif CONF_ATARI_HARDWARE
 
     /*

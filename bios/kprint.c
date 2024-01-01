@@ -141,8 +141,23 @@ static void kprintf_outc_coldfire_rs232(int c)
 }
 #endif
 
+#if defined(QEMU_DEBUG_PRINT) && QEMU_DEBUG_PRINT
+static void kprintf_outc_qemu(int c)
+{
+    if (c == '\n') {
+        kprintf_outc_qemu('\r');
+    }
+    /* send direct to the Goldfish TTY */
+    *(volatile LONG *)0xffffb400UL = c;
+}
+#endif
+
 static int vkprintf(const char *fmt, va_list ap)
 {
+#if defined(QEMU_DEBUG_PRINT) && QEMU_DEBUG_PRINT
+    return doprintf(kprintf_outc_qemu, fmt, ap);
+#endif
+
 #if CONSOLE_DEBUG_PRINT
     if (boot_status&CHARDEV_AVAILABLE) {    /* no console, no message */
         int rc;
