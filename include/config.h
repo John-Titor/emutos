@@ -1543,6 +1543,15 @@
 
 
 
+/*
+ * Set CONF_WITH_XBIOS_EXTENSION to cause xbios_do_unimpl() to be called
+ * for any unsupported XBIOS call. Machine-specific code can override
+ * xbios_do_unimpl() to implement custom XBIOS functions.
+ */
+#ifndef CONF_WITH_XBIOS_EXTENSION
+# define CONF_WITH_XBIOS_EXTENSION 0
+#endif
+
 /********************************************************
  *  S O F T W A R E   S E C T I O N   -   G E M D O S   *
  ********************************************************/
