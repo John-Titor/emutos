@@ -1552,6 +1552,14 @@
 # define CONF_WITH_XBIOS_EXTENSION 0
 #endif
 
+/*
+ * Set CONF_WITH_MACHINE_COOKIES to add a hook to  fill_cookie_jar()
+ * that will call machine_add_cookies() when it's safe to add cookies.
+ */
+#ifndef CONF_WITH_MACHINE_COOKIES
+# define CONF_WITH_MACHINE_COOKIES 0
+#endif
+
 /********************************************************
  *  S O F T W A R E   S E C T I O N   -   G E M D O S   *
  ********************************************************/
