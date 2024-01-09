@@ -1769,6 +1769,20 @@
 # define NUM_VDI_HANDLES 128    /* maximum number of open workstations */
 #endif
 
+/*
+ * Set CONF_WITH_EXTENDED_PALETTE if machine-specific display hardware
+ * has more than 4bpp.
+ *
+ * Implies CONF_WITH_CUSTOM_XBIOS_VIDEO as this requires custom handling
+ * of the extended XBIOS video functions.
+ */
+#ifndef CONF_WITH_EXTENDED_PALETTE
+# define CONF_WITH_EXTENDED_PALETTE (CONF_WITH_VIDEL || CONF_WITH_TT_SHIFTER)
+#endif
+#if CONF_WITH_EXTENDED_PALETTE
+# undef CONF_WITH_CUSTOM_XBIOS_VIDEO
+# define CONF_WITH_CUSTOM_XBIOS_VIDEO 1
+#endif
 
 
 /************************************************************************
