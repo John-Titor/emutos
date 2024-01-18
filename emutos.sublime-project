@@ -1,0 +1,44 @@
+{
+	"folders":
+	[
+		{
+			"path": "."
+		}
+	],
+	"settings":
+	{
+	    "tab_size": 4,
+	    "translate_tabs_to_spaces": true,
+	    "SublimeLinter.linters.cppcheck++.args": [
+	    	"--suppress=useStlAlgorithm",
+	    	"--suppress=noExplicitConstructor",
+	    	"--suppress=unusedStructMember"
+	    ],
+	},
+	"build_systems":
+	[
+	    {
+			"name": "EmuTOS build",
+	        "working_dir": "$project_path",
+        	"file_regex": "^(..[^:\n]*):([0-9]+):?([0-9]+)?:? (.*)$",
+    		// Recognize ANSI colors in the output
+    		"target": "ansi_color_build",
+    		"syntax": "Packages/ANSIescape/ANSI.tmLanguage",
+			"variants":
+			[
+				{
+					"name": "build all",
+					"shell_cmd" : "make ELF=1 pt68k5",
+				},
+				{
+					"name": "build/deploy",
+					"shell_cmd" : "make && ../deploy.sh",
+				},
+				{
+					"name": "clean",
+					"shell_cmd": "make clean"
+				}
+			]
+		},
+	],
+}
