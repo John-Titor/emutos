@@ -26,9 +26,12 @@
 #include "emutos.h"
 #include "asm.h"
 #include "delay.h"
+#include "screen.h"
 #include "pt68k5.h"
 #include "bios.h"
+#include "../bdos/bdosstub.h"
 #include "ikbd.h"
+#include "clock.h"
 #include "vectors.h"
 #include "tosvars.h"
 #include "duart68681.h"
@@ -51,7 +54,7 @@
 #define FROM_BCD(_x)    ((((_x) >> 4)) * 10 + ((_x) & 0x0f))
 #define TO_BCD(_x)      (((_x) / 10 << 4) | ((_x) % 10))
 
-ULONG pt68k5_getdt(void)
+LONG gettime(void)
 {
     UWORD second;
     UWORD minute;
@@ -77,18 +80,19 @@ ULONG pt68k5_getdt(void)
     return MAKE_ULONG(date, time);
 }
 
-void pt68k5_setdt(ULONG dt)
+void settime(LONG time)
 {
-    UWORD date = HIWORD(dt);
-    UWORD time = LOWORD(dt);
+    /* Update GEMDOS time and date */
+    current_time = LOWORD(time);
+    current_date = HIWORD(time);
 
     RTC_REG(RTC_CONTROL) |= RTC_CONTROL_WRITE;
-    RTC_REG(RTC_SECOND) = TO_BCD((time << 1) & 0x3f);
-    RTC_REG(RTC_MINUTE) = TO_BCD((time >> 5) & 0x3f);
-    RTC_REG(RTC_HOUR) = TO_BCD(time >> 11);
-    RTC_REG(RTC_DATE) = TO_BCD(date & 0x1f);
-    RTC_REG(RTC_MONTH) = TO_BCD((date >> 5) & 0x0f);
-    RTC_REG(RTC_YEAR) = TO_BCD((date >> 9) - 20);
+    RTC_REG(RTC_SECOND) = TO_BCD((current_time << 1) & 0x3f);
+    RTC_REG(RTC_MINUTE) = TO_BCD((current_time >> 5) & 0x3f);
+    RTC_REG(RTC_HOUR) = TO_BCD(current_time >> 11);
+    RTC_REG(RTC_DATE) = TO_BCD(current_date & 0x1f);
+    RTC_REG(RTC_MONTH) = TO_BCD((current_date >> 5) & 0x0f);
+    RTC_REG(RTC_YEAR) = TO_BCD((current_date >> 9) - 20);
     RTC_REG(RTC_CONTROL) &= RTC_CONTROL_WRITE;
 }
 
@@ -345,6 +349,7 @@ static void pt68k5_kbdif_intr(void)
 
 void pt68k5_kbd_init(void)
 {
+    /* can't do this with OVERRIDEABLE for layering reasons */
 #if CONF_PT68K5_KBD_MOUSE
     UBYTE count;
 
@@ -419,7 +424,7 @@ void pt68k5_kbd_init(void)
 #endif /* CONF_PT68K5_KBD_MOUSE */
 }
 
-void pt68k5_screen_init(void)
+void screen_init_mode(void)
 {
     /* more or less correct */
     sshiftmod = ST_HIGH;

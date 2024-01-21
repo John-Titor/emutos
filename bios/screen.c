@@ -484,6 +484,7 @@ static BOOL get_default_palmode(void)
  */
 
 /* Initialize the video mode (address will be done later) */
+OVERRIDEABLE
 void screen_init_mode(void)
 {
 #if CONF_WITH_ATARI_VIDEO
@@ -629,10 +630,6 @@ void screen_init_mode(void)
     lisa_screen_init();
 #endif
 
-#ifdef MACHINE_PT68K5
-    pt68k5_screen_init();
-#endif
-
 #ifdef CONF_SERIAL_CONSOLE
     /* Set the video mode to programs think they're running in an 80-column mode. */
     sshiftmod = ST_HIGH;
@@ -644,6 +641,7 @@ void screen_init_mode(void)
 }
 
 /* Initialize the video address (mode is already set) */
+OVERRIDEABLE
 void screen_init_address(void)
 {
     LONG vram_size;

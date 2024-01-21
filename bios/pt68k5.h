@@ -10,10 +10,7 @@
 
 #ifdef MACHINE_PT68K5
 
-ULONG pt68k5_getdt(void);
-void pt68k5_setdt(ULONG time);
 void pt68k5_kbd_init(void);
-void pt68k5_screen_init(void);
 
 #endif /* MACHINE_PT68K5 */
 #endif /* PT68K5.H */
