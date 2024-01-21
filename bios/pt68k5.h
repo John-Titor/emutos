@@ -10,7 +10,9 @@
 
 #ifdef MACHINE_PT68K5
 
+#if CONF_PT68K5_KBD_MOUSE
 void pt68k5_kbd_init(void);
+#endif
 
 #endif /* MACHINE_PT68K5 */
 #endif /* PT68K5.H */
