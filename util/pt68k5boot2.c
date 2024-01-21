@@ -217,7 +217,7 @@ disk_read(void *buffer, uint32_t lba)
             return -1;
         }
         if (status & IDE_STATUS_DRQ) {
-            uint16_t *bp = (uint16_t *)buffer;
+            volatile uint16_t *bp = (uint16_t *)buffer;
             for (unsigned idx = 0; idx < DISK_BLOCK_SIZE; idx += 2) {
                 if (disk_state.swap) {
                     *bp++ = swap16(IDE_DATA16);
@@ -552,6 +552,21 @@ emutos_load(void)
 }
 
 /*
+ * Load a raw binary to an arbitrary address.
+ */
+static uint32_t
+binary_load(void)
+{
+    uint8_t *load_buffer = (uint8_t *)0x4000;
+
+    if (file_read(load_buffer, disk_state.f_size)) {
+        return 0;
+    }
+    // skip ROM header
+    return (uint32_t)load_buffer + 8;
+}
+
+/*
  * Try to boot EmuTOS from the currently-configured disk.
  */
 static void
@@ -566,16 +581,28 @@ emutos_boot(void)
     uint32_t * const _memval3 = (uint32_t *)0x51a;
     uint32_t * const _ramvalid = (uint32_t *)0x5a8;
     uint32_t * const _warm_magic = (uint32_t *)0x6fc;
-    uint32_t entry;
+    uint32_t entry = 0;
 
     /* select the disk and try to open \emutosk5.rom */
     if (disk_select()) {
         printf("No disk\n");
-    } else if (file_open("EMUTOSK5ROM")) {
-        printf("No EmuTOS image\n");
-    } else if ((entry = emutos_load())) {
+        return;
+    }
+    if (!file_open("BOOT68K5ROM")) {
+        entry = binary_load();
+        if (entry) {
+            printf("booting second-stage booter @ 0x%lx\n\n", entry);
+        }
+    }
+    if (!entry && !file_open("EMUTOSK5ROM")) {
+        entry = emutos_load();
+        if (entry) {
+            video_init();
+            printf("booting EmuTOS @ 0x%lx\n\n", entry);
+        }
+    }
 
-        printf("booting @ 0x%lx\n\n", entry);
+    if (entry) {
         *_memctrl = 0;              /* zero memctrl since we don't conform */
         *_resvalid = 0;             /* prevent reset vector being called */
         *_phystop = ram_size;       /* ST memory size */
@@ -586,7 +613,6 @@ emutos_boot(void)
         *_ramvalid = 0x1357bd13;
         *_warm_magic = 0;           /* this is a first/cold boot */
 
-        video_init();
         jump_to_loaded_os(entry);
     }
 }
