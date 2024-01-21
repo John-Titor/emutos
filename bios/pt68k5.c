@@ -96,7 +96,18 @@ void settime(LONG time)
     RTC_REG(RTC_CONTROL) &= RTC_CONTROL_WRITE;
 }
 
-#define DUART_REG(_x)     *(volatile UBYTE *)(0x20004000UL + (_x))
+/*
+ * Use the COM1/2 DUART for mouse port & VBL emulation; the generic
+ * DUART driver is managing the COM3/4 DUART and uses that timer for
+ * the 200Hz tick.
+ */
+#define DUART_REG(_x)   *(volatile UBYTE *)(0x20004000UL + (_x))
+
+/*
+ * XT keyboard interface registers.
+ */
+#define KBD_DATA        *(volatile UBYTE *)0x20004101
+#define KBD_ACK         *(volatile UBYTE *)0x20004100
 
 /* scancode translation table, no mappings for: * kp (, kp ) */
 static const UBYTE xt_to_ikbd[128][2] = {
@@ -195,10 +206,10 @@ static void pt68k5_kbd_intr(void)
 #define FLG_NUMLOCK 0x01
 
     /* get the scan code from the shift register */
-    UBYTE code = *(volatile UBYTE *)0x20004101;
+    UBYTE code = KBD_DATA;
 
     /* ack the byte and allow the keyboard to send another */
-    (void)*(volatile UBYTE *)0x20004100;
+    KBD_ACK = 0;
 
     KDEBUG(("kbd 0x%02x\n", code));
 
@@ -347,10 +358,10 @@ static void pt68k5_kbdif_intr(void)
     }
 }
 
+#if CONF_PT68K5_KBD_MOUSE
 void pt68k5_kbd_init(void)
 {
     /* can't do this with OVERRIDEABLE for layering reasons */
-#if CONF_PT68K5_KBD_MOUSE
     UBYTE count;
 
     DUART_REG(DUART_OPCR) = 0;
@@ -421,8 +432,8 @@ void pt68k5_kbd_init(void)
     /* disable key repeat, as the keyboard already does it for us */
     conterm &= ~2;
 
-#endif /* CONF_PT68K5_KBD_MOUSE */
 }
+#endif /* CONF_PT68K5_KBD_MOUSE */
 
 void screen_init_mode(void)
 {
