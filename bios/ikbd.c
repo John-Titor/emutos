@@ -1105,7 +1105,7 @@ void kbd_init(void)
 
     mouse_packet[0] = 0;    /* not doing mouse emulation */
 
-#ifdef MACHINE_PT68K5
+#ifdef CONF_PT68K5_KBD_MOUSE
     /* need to do this after conterm is set */
     pt68k5_kbd_init();
 #endif
