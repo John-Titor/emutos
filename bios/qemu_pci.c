@@ -1,12 +1,12 @@
 /*
  * QEMU PCI functionality.
- * 
+ *
  * Function documentation is taken from:
- * 
+ *
  *   Atari PCI BIOS and device driver specification (Draft) 1.12
  *   Michael Schwingen, Torsten Lang, Markus Fichtenbauer
  *   1998/03/30 22:07:40
- * 
+ *
  * Note that the calling convention described is handled by
  * wrapper functions in qemu2.S
  */
@@ -228,7 +228,7 @@ static struct function_info *function_for_handle(LONG handle)
     return NULL;
 }
 
-static UBYTE *config_ptr_for_handle(LONG handle)
+static volatile UBYTE *config_ptr_for_handle(LONG handle)
 {
     if (handle >= PCI_MAX_FUNCTIONS) {
         return NULL;
@@ -379,7 +379,7 @@ LONG qemu_pci_find_pci_classcode(ULONG class, UWORD index)
  */
 LONG qemu_pci_read_config_byte(LONG handle, UWORD reg, UBYTE *address)
 {
-    UBYTE *cfg = config_ptr_for_handle(handle);
+    volatile UBYTE *cfg = config_ptr_for_handle(handle);
 
     if (!cfg) {
         return PCI_BAD_HANDLE;
@@ -396,7 +396,7 @@ LONG qemu_pci_read_config_byte(LONG handle, UWORD reg, UBYTE *address)
 
 LONG qemu_pci_read_config_word(LONG handle, UWORD reg, UWORD *address)
 {
-    UBYTE *cfg = config_ptr_for_handle(handle);
+    volatile UBYTE *cfg = config_ptr_for_handle(handle);
 
     if (!cfg) {
         return PCI_BAD_HANDLE;
@@ -413,7 +413,7 @@ LONG qemu_pci_read_config_word(LONG handle, UWORD reg, UWORD *address)
 
 LONG qemu_pci_read_config_longword(LONG handle, UWORD reg, ULONG *address)
 {
-    UBYTE *cfg = config_ptr_for_handle(handle);
+    volatile UBYTE *cfg = config_ptr_for_handle(handle);
 
     if (!cfg) {
         return PCI_BAD_HANDLE;
@@ -425,6 +425,7 @@ LONG qemu_pci_read_config_longword(LONG handle, UWORD reg, ULONG *address)
         return PCI_BUFFER_TOO_SMALL;
     }
     *address = swap32(*(ULONG *)(cfg + reg));
+    KDEBUG(("pci_read_config_longword 0x%x = 0x%08lx\n", reg, *address));
     return PCI_SUCCESSFUL;
 }
 
@@ -456,21 +457,21 @@ LONG qemu_pci_read_config_longword(LONG handle, UWORD reg, ULONG *address)
  */
 UBYTE qemu_pci_fast_read_config_byte(LONG handle, UWORD reg)
 {
-    UBYTE *cfg = config_ptr_for_handle(handle);
+    volatile UBYTE *cfg = config_ptr_for_handle(handle);
 
     return *(cfg + reg);
 }
 
 UWORD qemu_pci_fast_read_config_word(LONG handle, UWORD reg)
 {
-    UBYTE *cfg = config_ptr_for_handle(handle);
+    volatile UBYTE *cfg = config_ptr_for_handle(handle);
 
     return swap16(*(UWORD *)(cfg + reg));
 }
 
 ULONG qemu_pci_fast_read_config_longword(LONG handle, UWORD reg)
 {
-    UBYTE *cfg = config_ptr_for_handle(handle);
+    volatile UBYTE *cfg = config_ptr_for_handle(handle);
 
     return swap32(*(ULONG*)(cfg + reg));
 }
@@ -500,7 +501,7 @@ ULONG qemu_pci_fast_read_config_longword(LONG handle, UWORD reg)
  */
 LONG qemu_pci_write_config_byte(LONG handle, UWORD reg, UWORD val)
 {
-    UBYTE *cfg = config_ptr_for_handle(handle);
+    volatile UBYTE *cfg = config_ptr_for_handle(handle);
 
     if (!cfg) {
         return PCI_BAD_HANDLE;
@@ -514,7 +515,7 @@ LONG qemu_pci_write_config_byte(LONG handle, UWORD reg, UWORD val)
 
 LONG qemu_pci_write_config_word(LONG handle, UWORD reg, UWORD val)
 {
-    UBYTE *cfg = config_ptr_for_handle(handle);
+    volatile UBYTE *cfg = config_ptr_for_handle(handle);
 
     if (!cfg) {
         return PCI_BAD_HANDLE;
@@ -528,7 +529,7 @@ LONG qemu_pci_write_config_word(LONG handle, UWORD reg, UWORD val)
 
 LONG qemu_pci_write_config_longword(LONG handle, UWORD reg, ULONG val)
 {
-    UBYTE *cfg = config_ptr_for_handle(handle);
+    volatile UBYTE *cfg = config_ptr_for_handle(handle);
 
     if (!cfg) {
         return PCI_BAD_HANDLE;
@@ -1242,12 +1243,10 @@ static void configure_function(LONG handle)
      * Check for option ROM and allocate resources, but leave
      * it disabled as it may interfere with other BARs (see PCI 3.0
      * section 6.2.5.2).
-     *
-     * QEMU seems to just echo back the value written to this register
-     * (if there's no ROM present, perhaps), so check for that.
      */
     qemu_pci_write_config_longword(handle, PCIR_BIOS, 0xfffff800UL);
     qemu_pci_read_config_longword(handle, PCIR_BIOS, &mask);
+
     if (mask && (mask != 0xfffff800UL)) {
         ULONG size = ~(mask & 0xfffff800UL) + 1;
         ULONG addr = alloc_mmio(size);
