@@ -20,7 +20,7 @@
 
 /* hardcode these for now, but probably want a way to determine empirically */
 #define PCI_MMIO_BASE       0xd0000000UL
-#define PCI_MMIO_SIZE       0x1fd00000UL
+#define PCI_MMIO_SIZE       0x1fc00000UL
 #define PCI_MMIO_END        (PCI_MMIO_BASE + PCI_MMIO_SIZE)
 #define PCI_ECAM_BASE       0xffd00000UL
 #define PCI_ECAM_SIZE       0x00100000UL

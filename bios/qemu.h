@@ -27,6 +27,7 @@ static inline ULONG swap32(ULONG val)
            ((val<<24) & 0xff000000UL);
 }
 
+/* returns 1 + the least significant bit set in x, or 0 if no bits are set */
 __attribute__((unused))
 static ULONG __ffs (ULONG x)
 {
@@ -34,7 +35,7 @@ static ULONG __ffs (ULONG x)
 
   asm ("bfffo %1{#0:#0},%0" : "=d" (cnt) : "dm" (x & -x));
 
-  return 32 - cnt;
+  return (32 - cnt) % 32;
 }
 
 /* video */
