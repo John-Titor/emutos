@@ -1,5 +1,5 @@
 /*
- * qemu2.S
+ * Assembly shims and support for the QEMU machine.
  */
 
 #include "asmdefs.h"
