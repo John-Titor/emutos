@@ -107,13 +107,16 @@ The AT2XT keyboard converter used with the PT68K5 causes problems with the
 cursor / home / end keys on some AT keyboards. For best results ensure NumLock
 is off; it may be necessary to only use the cursor keys in the numeric keypad.
 
-Internal IDE vs. XTIDE
+Onboard IDE vs. XTIDE
 - - - - - - - - - - -
-The default configuration assumes the use of an SDCard (for ease of
-development) on the PTI-supplied XTIDE card. Build with CONF_WITH_XTIDE=0 to
-select the internal IDE interface instead. Quirks in the EmuTOS IDE
-implementation make supporting both at the same time inconvenient, although
-this is planned.
+Drive letters are assigned in order:
+
+ - XTIDE primary
+ - XTIDE secondary
+ - Onboard IDE primary
+ - Onboard IDE secondary
+
+This may mean that the drive that EMUTOSK5.ROM was loaded from is not C:.
 
 Mice
 - -
@@ -137,17 +140,17 @@ Supported PT68K5 hardware
 - - - - - - - - - - - - -
 
 - 68020/68881 CPU/FPU
-- 64-128M RAM
+- 16-128M RAM
 - Hardware realtime clock
 - Onboard IDE controller
 - PTI XTIDE controller
 - Serial console
-- Mouse Systems / Logitech 3-button mouse
-- Keyboard
+- Mouse Systems / Logitech 3-button serial mouse
+- Microsoft-compatible 2-buttin serial mouse
+- AT/PS2 Keyboard via PTI AT2XT adapter
 - ET4000 video
 
 Planned support:
-- Microsoft-compatible serial mouse (implemented, untested)
 - Other IDE cards
 
 Unlikely to be supported:
