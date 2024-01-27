@@ -629,9 +629,6 @@
 # define CONF_DUART_TIMER_C 1
 # define CONF_WITH_IDE 1
 # define CONF_IDE_NO_RESET 1
-# ifndef CONF_WITH_XTIDE
-#  define CONF_WITH_XTIDE 1
-# endif
 # ifndef CONF_SERIAL_CONSOLE
 #  define CONF_SERIAL_CONSOLE 0
 # endif
