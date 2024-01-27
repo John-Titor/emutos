@@ -195,7 +195,7 @@ static ULONG alloc_io(ULONG size)
 struct function_info
 {
     struct resource_info    *resources;
-    UBYTE                   *cfg_space;
+    volatile void           *cfg_space;
     ULONG                   driver_status;
     WORD                    interrupt_index;
 };
@@ -228,7 +228,7 @@ static struct function_info *function_for_handle(LONG handle)
     return NULL;
 }
 
-static volatile UBYTE *config_ptr_for_handle(LONG handle)
+static volatile void *config_ptr_for_handle(LONG handle)
 {
     if (handle >= PCI_MAX_FUNCTIONS) {
         return NULL;
@@ -396,35 +396,37 @@ LONG qemu_pci_read_config_byte(LONG handle, UWORD reg, UBYTE *address)
 
 LONG qemu_pci_read_config_word(LONG handle, UWORD reg, UWORD *address)
 {
-    volatile UBYTE *cfg = config_ptr_for_handle(handle);
+    volatile UWORD *cfg = config_ptr_for_handle(handle);
 
     if (!cfg) {
         return PCI_BAD_HANDLE;
     }
-    if (reg >= (PCI_CFG_FUNCTION_SIZE - 1)) {
+    if ((reg >= (PCI_CFG_FUNCTION_SIZE - 1)) ||
+        (reg & 1)) {
         return PCI_BAD_REGISTER_NUMBER;
     }
     if (!address) {
         return PCI_BUFFER_TOO_SMALL;
     }
-    *address = swap16(*(UWORD *)(cfg + reg));
+    *address = swap16(*(cfg + (reg >> 1)));
     return PCI_SUCCESSFUL;
 }
 
 LONG qemu_pci_read_config_longword(LONG handle, UWORD reg, ULONG *address)
 {
-    volatile UBYTE *cfg = config_ptr_for_handle(handle);
+    volatile ULONG *cfg = config_ptr_for_handle(handle);
 
     if (!cfg) {
         return PCI_BAD_HANDLE;
     }
-    if (reg >= (PCI_CFG_FUNCTION_SIZE - 3)) {
+    if ((reg >= (PCI_CFG_FUNCTION_SIZE - 3)) ||
+        (reg & 3)) {
         return PCI_BAD_REGISTER_NUMBER;
     }
     if (!address) {
         return PCI_BUFFER_TOO_SMALL;
     }
-    *address = swap32(*(ULONG *)(cfg + reg));
+    *address = swap32(*(cfg + (reg >> 2)));
     KDEBUG(("pci_read_config_longword 0x%x = 0x%08lx\n", reg, *address));
     return PCI_SUCCESSFUL;
 }
@@ -464,16 +466,16 @@ UBYTE qemu_pci_fast_read_config_byte(LONG handle, UWORD reg)
 
 UWORD qemu_pci_fast_read_config_word(LONG handle, UWORD reg)
 {
-    volatile UBYTE *cfg = config_ptr_for_handle(handle);
+    volatile UWORD *cfg = config_ptr_for_handle(handle);
 
-    return swap16(*(UWORD *)(cfg + reg));
+    return swap16(*(cfg + (reg >> 1)));
 }
 
 ULONG qemu_pci_fast_read_config_longword(LONG handle, UWORD reg)
 {
-    volatile UBYTE *cfg = config_ptr_for_handle(handle);
+    volatile ULONG *cfg = config_ptr_for_handle(handle);
 
-    return swap32(*(ULONG*)(cfg + reg));
+    return swap32(*(cfg + (reg >> 2)));
 }
 
 /*
@@ -515,30 +517,32 @@ LONG qemu_pci_write_config_byte(LONG handle, UWORD reg, UWORD val)
 
 LONG qemu_pci_write_config_word(LONG handle, UWORD reg, UWORD val)
 {
-    volatile UBYTE *cfg = config_ptr_for_handle(handle);
+    volatile UWORD *cfg = config_ptr_for_handle(handle);
 
     if (!cfg) {
         return PCI_BAD_HANDLE;
     }
-    if (reg >= (PCI_CFG_FUNCTION_SIZE - 1)) {
+    if ((reg >= (PCI_CFG_FUNCTION_SIZE - 1)) ||
+        (reg & 1)) {
         return PCI_BAD_REGISTER_NUMBER;
     }
-    *(UWORD *)(cfg + reg) = swap16(val);
+    *(cfg + (reg >> 1)) = swap16(val);
     return PCI_SUCCESSFUL;
 }
 
 LONG qemu_pci_write_config_longword(LONG handle, UWORD reg, ULONG val)
 {
-    volatile UBYTE *cfg = config_ptr_for_handle(handle);
+    volatile ULONG *cfg = config_ptr_for_handle(handle);
 
     if (!cfg) {
         return PCI_BAD_HANDLE;
     }
-    if (reg >= (PCI_CFG_FUNCTION_SIZE - 3)) {
+    if ((reg >= (PCI_CFG_FUNCTION_SIZE - 3)) ||
+        (reg & 3)) {
         return PCI_BAD_REGISTER_NUMBER;
     }
-    //KDEBUG(("PCI: cfg write 0x%08lx\n", swap32(val)));
-    *(ULONG *)(cfg + reg) = swap32(val);
+    KDEBUG(("PCI: cfg write 0x%x = 0x%08lx\n", reg, val));
+    *(cfg + (reg >> 2)) = swap32(val);
     return PCI_SUCCESSFUL;
 }
 
