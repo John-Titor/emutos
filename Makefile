@@ -631,25 +631,39 @@ qemu:
 	@echo "# Building QEMU EmuTOS into $(ROM_PADDED)"
 	$(MAKE) CPUFLAGS='$(CPUFLAGS)' OPTFLAGS='$(OPTFLAGS)' DEF='$(DEF)' WITH_AES=$(WITH_AES) ROMSIZE=$(ROMSIZE) ROM_PADDED=$(ROM_PADDED) $(ROM_PADDED)
 
-QEMU = ../../qemu/qemu/build/qemu-system-m68k
-QEMU_MEM = /tmp/atari.mem
+# override these to suit local paths
+QEMU_DIR ?= ../../../_Emulators/qemu/qemu
+QEMU ?= ../../../_Emulators/qemu/qemu/build/qemu-system-m68k
+QEMU_DISK ?= ../disk.bin
+
+# basic configuration
 QEMU_MEM_SIZE = 64M
 QEMU_OPTS =
 QEMU_OPTS += -kernel $(ROM_QEMU)
-QEMU_OPTS += -machine type=atarist,memory-backend=virt.ram
+QEMU_OPTS += -L $(QEMU_DIR)/pc-bios
 QEMU_OPTS += -m $(QEMU_MEM_SIZE)
-QEMU_OPTS += -object memory-backend-file,size=$(QEMU_MEM_SIZE),id=virt.ram,mem-path=$(QEMU_MEM),share=on,prealloc=on
-#QEMU_OPTS += -monitor stdio
-QEMU_OPTS += -serial mon:stdio
+QEMU_OPTS += -drive file=$(QEMU_DISK),if=ide,format=raw
+
+# the cocoa display has issues, so prefer SDL
 QEMU_OPTS += -display sdl
-QEMU_OPTS += -device cirrus-vga
-QEMU_OPTS += -device usb-ehci
+#QEMU_OPTS += -display cocoa,full-screen=off,zoom-to-fit=off
+
+# select the memory-backend options to have emulator memory mapped / save to file
+QEMU_OPTS += -machine type=atarist
+QEMU_MEM = /tmp/atari.mem
+#QEMU_OPTS += -machine type=atarist,memory-backend=virt.ram
+#QEMU_OPTS += -object memory-backend-file,size=$(QEMU_MEM_SIZE),id=virt.ram,mem-path=$(QEMU_MEM),share=on,prealloc=on
+
+# serial options
+QEMU_OPTS += -serial mon:stdio
+#QEMU_OPTS += -monitor stdio
+
+# optional devices
+QEMU_OPTS += -device cirrus-vga,romfile=vgabios-cirrus.bin
+#QEMU_OPTS += -device usb-ehci
 #QEMU_OPTS += -device pci-serial-4x
 #QEMU_OPTS += -device rtl8139
 #QEMU_OPTS += -device sdhci-pci
-#QEMU_OPTS += -display none
-#QEMU_OPTS += -display cocoa,full-screen=off,zoom-to-fit=off
-QEMU_OPTS += -drive file=../disk.bin,if=ide,format=raw
 
 # trace single instructions - huge logfiles
 #QEMU_OPTS += -accel tcg,one-insn-per-tb=on,thread=single -d exec,cpu,in_asm -D /tmp/qemu.log
