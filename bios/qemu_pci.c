@@ -126,7 +126,6 @@ struct resource_info
     ULONG   length;
     ULONG   offset;
     ULONG   dmaoffset;
-    UBYTE   private;
 };
 
 #define RSC_IO          0x4000
@@ -697,8 +696,13 @@ LONG qemu_pci_get_resource(LONG handle)
 {
     struct function_info *fn = function_for_handle(handle);
 
+    KDEBUG(("pci_get_resource(%ld) @ %p\n", handle, fn));
+
     if (!fn) {
         return PCI_BAD_HANDLE;
+    }
+    if (!fn->resources) {
+        return PCI_GENERAL_ERROR;
     }
 
     return (LONG)fn->resources;
@@ -1165,8 +1169,8 @@ static void print_function(LONG handle)
 {
     struct function_info *fn = function_for_handle(handle);
 
-    KDEBUG(("pci%ld: vendor 0x%04x device 0x%04x class 0x%02x subclass 0x%02x\n",
-            handle,
+    KDEBUG(("pci%ld: @ %p vendor 0x%04x device 0x%04x class 0x%02x subclass 0x%02x\n",
+            handle, fn,
             qemu_pci_fast_read_config_word(handle, PCIR_VENDOR),
             qemu_pci_fast_read_config_word(handle, PCIR_DEVICE),
             qemu_pci_fast_read_config_byte(handle, PCIR_CLASS),
@@ -1174,6 +1178,7 @@ static void print_function(LONG handle)
 
     if (fn->resources) {
         struct resource_info *rsc = fn->resources;
+        KDEBUG(("  resources @ %p\n", rsc));
         do {
             KDEBUG(("  %s @ 0x%08lx/0x%08lx\n", 
                     ((rsc->flags & RSC_IO) ? " IO" : "MEM"),
@@ -1189,7 +1194,6 @@ static void configure_function(LONG handle)
     ULONG mask;
     UWORD reg;
     struct function_info *fn = function_for_handle(handle);
-    struct resource_info *first_rsc = NULL;
     struct resource_info *last_rsc = NULL;
 
     /*
@@ -1226,27 +1230,30 @@ static void configure_function(LONG handle)
             if (size > 0) {
                 /* get a new resource */
                 last_rsc = alloc_resource();
-                if (!first_rsc) {
-                    first_rsc = last_rsc;
+                if (!fn->resources) {
+                    fn->resources = last_rsc;
                 }
 
                 /* record our allocation */
                 last_rsc->flags = ((io_alloc ? RSC_IO : 0) |
                                    FLG_8BIT | FLG_16BIT | FLG_32BIT |
                                    2);   /* lane-swapped */
-                last_rsc->start = addr;
+                if (io_alloc) {
+                    last_rsc->start = PCI_IO_BASE + addr;
+                    last_rsc->offset = PCI_IO_BASE;
+                } else {
+                    last_rsc->start = addr;
+                    last_rsc->offset = 0;
+                }
                 last_rsc->length = size;
-                last_rsc->offset = 0;
                 last_rsc->dmaoffset = 0;
-                last_rsc->private = 0;
             }
         }
     }
 
     /*
-     * Check for option ROM and allocate resources, but leave
-     * it disabled as it may interfere with other BARs (see PCI 3.0
-     * section 6.2.5.2).
+     * Check for option ROM and allocate resources. Enable the option
+     * ROM if it's found, as an emulator may want it.
      */
     qemu_pci_write_config_longword(handle, PCIR_BIOS, 0xfffff800UL);
     qemu_pci_read_config_longword(handle, PCIR_BIOS, &mask);
@@ -1254,14 +1261,14 @@ static void configure_function(LONG handle)
     if (mask && (mask != 0xfffff800UL)) {
         ULONG size = ~(mask & 0xfffff800UL) + 1;
         ULONG addr = alloc_mmio(size);
-        qemu_pci_write_config_longword(handle, PCIR_BIOS, addr);
+        qemu_pci_write_config_longword(handle, PCIR_BIOS, addr | 1);
 
         KDEBUG(("exrom 0x%08lx\n", mask));
 
         /* get a new resource */
         last_rsc = alloc_resource();
-        if (!first_rsc) {
-            first_rsc = last_rsc;
+        if (!fn->resources) {
+            fn->resources = last_rsc;
         }
 
         /* record our allocation */
@@ -1270,11 +1277,9 @@ static void configure_function(LONG handle)
         last_rsc->length = size;
         last_rsc->offset = 0;
         last_rsc->dmaoffset = 0;
-        last_rsc->private = 0;
     }
 
-    /* link resources to function */
-    fn->resources = first_rsc;
+    /* set last-resource flag */
     if (last_rsc) {
         last_rsc->flags |= RSC_LAST;
     }
