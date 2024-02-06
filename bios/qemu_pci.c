@@ -1252,36 +1252,42 @@ static void configure_function(LONG handle)
     }
 
     /*
-     * Check for option ROM and allocate resources. Enable the option
-     * ROM if it's found, as an emulator may want it.
+     * Check for a VGA device and if so, map/enable the option ROM.
      */
-    qemu_pci_write_config_longword(handle, PCIR_BIOS, 0xfffff800UL);
-    qemu_pci_read_config_longword(handle, PCIR_BIOS, &mask);
+    ULONG classcode = 0;
+    qemu_pci_read_config_longword(handle, PCIR_REVID, &classcode);
+    classcode >>= 16;
+    if ((classcode == ((PCIC_DISPLAY << 8) | (PCIS_DISPLAY_VGA))) ||
+        (classcode == ((PCIC_OLD << 8) | PCIS_OLD_VGA))) {
 
-    if (mask && (mask != 0xfffff800UL)) {
-        ULONG size = ~(mask & 0xfffff800UL) + 1;
-        ULONG addr = alloc_mmio(size);
-        qemu_pci_write_config_longword(handle, PCIR_BIOS, addr | 1);
+        qemu_pci_write_config_longword(handle, PCIR_BIOS, 0xfffff800UL);
+        qemu_pci_read_config_longword(handle, PCIR_BIOS, &mask);
 
-        KDEBUG(("exrom 0x%08lx\n", mask));
+        if (mask && (mask != 0xfffff800UL)) {
+            ULONG size = ~(mask & 0xfffff800UL) + 1;
+            ULONG addr = alloc_mmio(size);
+            qemu_pci_write_config_longword(handle, PCIR_BIOS, addr | 1);
 
-        /* get a new resource */
-        last_rsc = alloc_resource();
-        if (!fn->resources) {
-            fn->resources = last_rsc;
+            KDEBUG(("exrom 0x%08lx\n", mask));
+
+            /* get a new resource */
+            last_rsc = alloc_resource();
+            if (!fn->resources) {
+                fn->resources = last_rsc;
+            }
+
+            /* record our allocation */
+            last_rsc->flags = FLG_8BIT | FLG_16BIT | FLG_32BIT | 2;
+            last_rsc->start = addr;
+            last_rsc->length = size;
+            last_rsc->offset = 0;
+            last_rsc->dmaoffset = 0;
         }
 
-        /* record our allocation */
-        last_rsc->flags = FLG_8BIT | FLG_16BIT | FLG_32BIT | 2;
-        last_rsc->start = addr;
-        last_rsc->length = size;
-        last_rsc->offset = 0;
-        last_rsc->dmaoffset = 0;
-    }
-
-    /* set last-resource flag */
-    if (last_rsc) {
-        last_rsc->flags |= RSC_LAST;
+        /* set last-resource flag */
+        if (last_rsc) {
+            last_rsc->flags |= RSC_LAST;
+        }
     }
 
     /* enable I/O decode, mastering, interrupts */
