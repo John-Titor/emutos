@@ -244,29 +244,6 @@ release-amiga-floppy:
 	cd $(RELEASE_DIR) && zip -9 -r $(RELEASE_AMIGA_FLOPPY).zip $(RELEASE_AMIGA_FLOPPY)
 	rm -r $(RELEASE_DIR)/$(RELEASE_AMIGA_FLOPPY)
 
-<<<<<<< ours
-=======
-.PHONY: release-lisa
-NODEP += release-lisa
-RELEASE_LISA = emutos-lisa-$(VERSION)
-release-lisa:
-	$(MAKE) clean
-	$(MAKE) lisaflop
-	mkdir $(RELEASE_DIR)/$(RELEASE_LISA)
-	cp $(EMUTOS_DC42) $(RELEASE_DIR)/$(RELEASE_LISA)
-	cp desk/icon.def $(RELEASE_DIR)/$(RELEASE_LISA)/emuicon.def
-	cp desk/icon.rsc $(RELEASE_DIR)/$(RELEASE_LISA)/emuicon.rsc
-	cat doc/readme-lisa.txt readme.txt >$(RELEASE_DIR)/$(RELEASE_LISA)/readme.txt
-	mkdir $(RELEASE_DIR)/$(RELEASE_LISA)/doc
-	cp $(DOCFILES) $(RELEASE_DIR)/$(RELEASE_LISA)/doc
-	mkdir $(RELEASE_DIR)/$(RELEASE_LISA)/extras
-	cp $(EXTRAFILES) $(RELEASE_DIR)/$(RELEASE_LISA)/extras
-	cp aes/mform.def $(RELEASE_DIR)/$(RELEASE_LISA)/extras/emucurs.def
-	cp aes/mform.rsc $(RELEASE_DIR)/$(RELEASE_LISA)/extras/emucurs.rsc
-	find $(RELEASE_DIR)/$(RELEASE_LISA) -name '*.txt' -exec unix2dos '{}' ';'
-	cd $(RELEASE_DIR) && zip -9 -r $(RELEASE_LISA).zip $(RELEASE_LISA)
-	rm -r $(RELEASE_DIR)/$(RELEASE_LISA)
-
 .PHONY: release-pt68k5
 NODEP += release-pt68k5
 RELEASE_PT68K5 = emutos-pt68k5-$(VERSION)
@@ -288,7 +265,6 @@ release-pt68k5:
 	cd $(RELEASE_DIR) && zip -9 -r $(RELEASE_PT68K5).zip $(RELEASE_PT68K5)
 	rm -r $(RELEASE_DIR)/$(RELEASE_PT68K5)
 
->>>>>>> theirs
 .PHONY: release-m548x-dbug
 NODEP += release-m548x-dbug
 RELEASE_M548X_DBUG = emutos-m548x-dbug-$(VERSION)
