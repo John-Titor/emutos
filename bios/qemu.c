@@ -10,6 +10,7 @@
  */
 
 #include "emutos.h"
+#ifdef MACHINE_QEMU
 #include "qemu.h"
 #include "bios.h"
 #include "biosext.h"
@@ -17,8 +18,6 @@
 #include "mfp.h"
 #include "vectors.h"
 #include "cookie.h"
-
-#ifdef MACHINE_QEMU
 
 typedef struct
 {
@@ -254,4 +253,3 @@ void machine_add_cookies(void)
     qemu_video_add_cookies();
 }
 #endif /* MACHINE_QEMU */
-
