@@ -17,8 +17,6 @@
 
 #define HAVE_BEZIER 0           /* switch on bezier capability - entirely untested */
 
-#define EXTENDED_PALETTE (CONF_WITH_VIDEL || CONF_WITH_TT_SHIFTER)
-
 #if CONF_WITH_VIDEL
 # define UDPAT_PLANES   32      /* actually 16, but each plane occupies 2 WORDs */
 #elif CONF_WITH_TT_SHIFTER

@@ -106,4 +106,8 @@ WORD get_floppy_type(void);     /* from _FDC cookie */
 BOOL nvdi_cookie_present(void);
 #endif
 
+#if CONF_WITH_MACHINE_COOKIES
+void machine_add_cookies(void);
+#endif
+
 #endif

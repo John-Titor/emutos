@@ -1385,12 +1385,21 @@ bx_sp_ok:
         moveq   #0,d0           // clear d0 (use d0 like the original TOS)
         move.w  (sp)+,d0        // remove the function number from stack
         cmp.w   d1,d0           // Higher than highest number?
+#if CONF_WITH_XBIOS_EXTENSION
+        jhs     bx_get_vector
+#else
         jhs     bx_ret_exc
+#endif
         move.l  d0,d1           // if not implemented, returns the func number
         add.l   d1,d1           // indirection function table is 1 LW per
         add.l   d1,d1           // so multiply function number by 4
         add.l   d1,a0           // add to the base address of lookup table
         move.l  (a0),a0         // get the procedures address
+#if CONF_WITH_XBIOS_EXTENSION
+        cmpa.l  #_xbios_unimpl,a0 // unimplemented?
+        beq     bx_get_vector   // try to get a vector
+#endif
+bx_do_call:
         jsr     (a0)            // go do it and then come back
 
 bx_ret_exc:
@@ -1419,6 +1428,26 @@ bx_nolong2:
 // The RTE below is shared for other purposes.
 _just_rte:
         rte                     // return with return value in D0
+
+#if CONF_WITH_XBIOS_EXTENSION
+/*
+ * Callout for unhandled (X)BIOS functions.
+ */
+        .extern _xbios_extlookup
+bx_get_vector:
+        move.w  d0,-(sp)
+        jbsr    _xbios_extlookup
+        tst.l   d0
+        beq     bx_no_vector
+        addq.l  #2,sp
+        move.l  d0,a0
+        jmp     bx_do_call
+
+bx_no_vector:
+        move.w  (sp)+,d0
+        jmp     bx_ret_exc
+
+#endif /* CONF_WITH_XBIOS_EXTENSION */
 
 /*
  * (X)BIOS unimplemented function handler.

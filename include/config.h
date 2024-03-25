@@ -571,6 +571,9 @@
 # ifndef CONF_WITH_IDE
 #  define CONF_WITH_IDE 1
 # endif
+# ifndef CONF_WITH_IDE_BYTESWAP
+#  define CONF_WITH_IDE_BYTESWAP 1
+# endif
 # ifndef CONF_WITH_UAE
 #  define CONF_WITH_UAE 1
 # endif
@@ -704,6 +707,53 @@
 # endif
 # ifndef AES_STACK_SIZE
 #  define AES_STACK_SIZE 2048   /* in LONGs */
+# endif
+#endif
+
+/*
+ * Defaults for the QEMU machine
+ */
+#ifdef MACHINE_QEMU
+# define CONF_ATARI_HARDWARE 0
+# define CONF_WITH_IDE 1
+# define CONF_WITH_IDE_BYTESWAP 1
+# define CONF_WITH_MFP 1
+# define CONF_WITH_IKBD_ACIA 1
+# define CONF_WITH_IKBD_CLOCK 1
+# define CONF_WITH_ADVANCED_CPU 1
+# define CONF_FORCE_CPU_TYPE 40
+# define CONF_DETECT_FIRST_BOOT_WITHOUT_MEMCONF 1
+# define CONF_WITH_ALT_RAM 1
+# define CONF_WITH_TTRAM 1
+# define CONF_WITH_BUS_ERROR 1
+# define CONF_WITH_SHUTDOWN 1
+# define CONF_WITH_CUSTOM_XBIOS_VIDEO 1
+# define CONF_WITH_EXTENDED_PALETTE 1
+# define CONF_WITH_XBIOS_EXTENSION 1
+# define CONF_WITH_MACHINE_COOKIES 1
+# define CONF_WITH_3D_OBJECTS 1
+# define CONF_WITH_COLOUR_ICONS 1
+# define CONF_WITH_EXTENDED_OBJECTS 1
+# define CONF_WITH_GRAF_MOUSE_EXTENSION 1
+# define CONF_WITH_MENU_EXTENSION 1
+# define CONF_WITH_NICELINES 1
+# define CONF_WITH_WINDOW_COLOURS 1
+# define CONF_WITH_BIOS_EXTENSIONS 1
+# define CONF_WITH_EXTENDED_MOUSE 1
+# define CONF_WITH_FORMAT 0
+# define CONF_WITH_PRINTER_ICON 0
+/*# define TOS_VERSION 0x404*/
+# ifndef CONF_STRAM_SIZE
+#  define CONF_STRAM_SIZE 14*1024*1024
+# endif
+# ifndef CONF_SERIAL_CONSOLE
+#  define CONF_SERIAL_CONSOLE 0
+# endif
+# ifndef ENABLE_KDEBUG
+#  define ENABLE_KDEBUG 0
+# endif
+# ifndef QEMU_DEBUG_PRINT
+#  define QEMU_DEBUG_PRINT 0
 # endif
 #endif
 
@@ -1131,6 +1181,14 @@
  */
 #ifndef CONF_WITH_IDE
 # define CONF_WITH_IDE 1
+#endif
+
+/*
+ * Set CONF_WITH_IDE_BYTESWAP if the IDE interface is naturally
+ * byteswapped.
+ */
+#ifndef CONF_WITH_IDE_BYTESWAP
+# define CONF_WITH_IDE_BYTESWAP 1
 #endif
 
 /*
@@ -1642,7 +1700,45 @@
 # define CONF_WITH_1FAT_SUPPORT 0
 #endif
 
+/*
+ * Set CONF_WITH_CUSTOM_XBIOS_VIDEO to allow machine-specific code to
+ * implement vsetmode, vmontype, vgetsync, vgetsize, vsetrgb, vgetrgb,
+ * vfixmode, setscreen.
+ *
+ * This implies CONF_WITH_SREALLOC.
+ */
+#ifndef CONF_WITH_CUSTOM_XBIOS_VIDEO
+# define CONF_WITH_CUSTOM_XBIOS_VIDEO 0
+#endif
+#if CONF_WITH_CUSTOM_XBIOS_VIDEO
+# undef CONF_WITH_SREALLOC
+# define CONF_WITH_SREALLOC 1
+#endif
 
+/*
+ * Set CONF_WITH_SREALLOC to implement the srealloc, which can be used
+ * to reallocate video memory when the display buffer changes size.
+ */
+#ifndef CONF_WITH_SREALLOC
+# define CONF_WITH_SREALLOC 0
+#endif
+
+/*
+ * Set CONF_WITH_XBIOS_EXTENSION to cause xbios_do_unimpl() to be called
+ * for any unsupported XBIOS call. Machine-specific code can override
+ * xbios_do_unimpl() to implement custom XBIOS functions.
+ */
+#ifndef CONF_WITH_XBIOS_EXTENSION
+# define CONF_WITH_XBIOS_EXTENSION 0
+#endif
+
+/*
+ * Set CONF_WITH_MACHINE_COOKIES to add a hook to  fill_cookie_jar()
+ * that will call machine_add_cookies() when it's safe to add cookies.
+ */
+#ifndef CONF_WITH_MACHINE_COOKIES
+# define CONF_WITH_MACHINE_COOKIES 0
+#endif
 
 /********************************************************
  *  S O F T W A R E   S E C T I O N   -   G E M D O S   *
@@ -1729,6 +1825,20 @@
 # define NUM_VDI_HANDLES 128    /* maximum number of open workstations */
 #endif
 
+/*
+ * Set CONF_WITH_EXTENDED_PALETTE if machine-specific display hardware
+ * has more than 4bpp.
+ *
+ * Implies CONF_WITH_CUSTOM_XBIOS_VIDEO as this requires custom handling
+ * of the extended XBIOS video functions.
+ */
+#ifndef CONF_WITH_EXTENDED_PALETTE
+# define CONF_WITH_EXTENDED_PALETTE (CONF_WITH_VIDEL || CONF_WITH_TT_SHIFTER)
+#endif
+#if CONF_WITH_EXTENDED_PALETTE
+# undef CONF_WITH_CUSTOM_XBIOS_VIDEO
+# define CONF_WITH_CUSTOM_XBIOS_VIDEO 1
+#endif
 
 
 /************************************************************************

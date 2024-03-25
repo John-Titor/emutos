@@ -190,7 +190,7 @@ void update_rez_dependent(void)
 {
     BYTES_LIN = v_lin_wr = V_REZ_HZ / 8 * v_planes;
 
-#if EXTENDED_PALETTE
+#if CONF_WITH_EXTENDED_PALETTE
     mcs_ptr = (v_planes <= 4) ? &mouse_cursor_save : &ext_mouse_cursor_save;
 #else
     mcs_ptr = &mouse_cursor_save;

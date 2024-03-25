@@ -15,7 +15,7 @@
 #include "xbiosbind.h"
 #include "lineavars.h"
 
-#if EXTENDED_PALETTE
+#if CONF_WITH_EXTENDED_PALETTE
 #define MAXCOLOURS  256
 #else
 #define MAXCOLOURS  16
@@ -462,7 +462,7 @@ static void query_tt_color(WORD colnum,WORD *retval)
 #endif
 
 
-#if CONF_WITH_VIDEL
+#if CONF_WITH_VIDEL || CONF_WITH_EXTENDED_PALETTE
 /* Create videl colour value from VDI colour */
 static LONG vdi2videl(WORD col)
 {
@@ -545,8 +545,10 @@ static void set_color(WORD colnum, WORD *rgb)
     g = rgb[1];
     b = rgb[2];
 
+#if CONF_WITH_VIDEL || CONF_WITH_EXTENDED_PALETTE
 #if CONF_WITH_VIDEL
     if (has_videl)
+#endif
     {
         LONG videlrgb;
 
@@ -623,7 +625,7 @@ void vdi_vs_color(Vwk *vwk)
     {
         if (colnum < 16)
             REQ_COL[colnum][i] = *intin;
-#if EXTENDED_PALETTE
+#if CONF_WITH_EXTENDED_PALETTE
         else
             req_col2[colnum-16][i] = *intin;
 #endif
@@ -671,7 +673,7 @@ void init_colors(void)
     memcpy(MAP_COL, MAP_COL_ROM, sizeof(MAP_COL_ROM));
     MAP_COL[1] = MAXCOLOURS - 1;
 
-#if EXTENDED_PALETTE
+#if CONF_WITH_EXTENDED_PALETTE
     for (i = 16; i < MAXCOLOURS-1; i++)
         MAP_COL[i] = i;
     MAP_COL[i] = 15;
@@ -686,7 +688,7 @@ void init_colors(void)
     {
         if (i < 16)
             set_color(i, REQ_COL[i]);
-#if EXTENDED_PALETTE
+#if CONF_WITH_EXTENDED_PALETTE
         else
             set_color(i, req_col2[i-16]);
 #endif
@@ -767,7 +769,7 @@ void vdi_vq_color(Vwk *vwk)
             INTOUT[2] = REQ_COL[colnum][1];
             INTOUT[3] = REQ_COL[colnum][2];
         }
-#if EXTENDED_PALETTE
+#if CONF_WITH_EXTENDED_PALETTE
         else
         {
             INTOUT[1] = req_col2[colnum-16][0];
