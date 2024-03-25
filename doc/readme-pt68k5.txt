@@ -9,12 +9,10 @@ Built Files
 EMUTOSK5.SYS                - EmuTOS system image
 pt68k5boot.img              - Booter
 pt68k5installboot           - Booter installer
-extras/pt68k5_gotek_img.cfg - Gotek/FlashFloppy config for floppy booting
 
 The booter supports both the onboard IDE controller and the PTI XTIDE card.
 If booted from either of these interfaces, it will expect to find EmuTOS on
-the same drive. If booted from floppy, it will search both controllers looking
-for a bootable partition.
+the same drive.
 
 Supported System Configurations
 -------------------------------
@@ -73,21 +71,6 @@ and unmounting filesystems may vary.
 Connect the drive to your PT68K5 and use 'U' or 'W' at the MONK5 prompt to boot
 from the XTIDE or internal primary drives respectively.
 
-Floppy Boot
-- - - - - -
-If you are unable to install the booter to the hard drive / SDCard, you can
-load it from a Gotek/FlashFloppy. The OS image must still be on one of the
-drives / SDCards in the system.
-
-Create a 1.44M floppy drive image (must be exactly 1392640 bytes) and install
-the booter to the image:
-
-# dd if=/dev/zero of=EMUTOS.REX.IMA count=1392640
-# ./pt68k5_installboot pt68k5boot.img EMUTOS.REX.IMA
-
-Then copy EMUTOS.REX.IMA and extras/pt68k5_gotek_img.cfg to a USB drive and
-insert into your Gotek/FlashFloppy. Boot using 'U' at the MONK5 prompt.
-
 Port Details
 ------------
 The port attempts to replicate Atari system functionality in a compatible
@@ -97,13 +80,13 @@ other software that attempts to use the Atari hardware directly will not.
 Compatibility Hints
 - - - - - - - - - -
 If EmuTOS crashes with a Bus Error, check the address that's being accessed.
-If it is above 0xffff_0000, it's almost certainly some software trying to 
+If it is above 0xffff_0000, it's almost certainly some software trying to
 touch Atari hardware directly. You can check the ST memory map here to help
 work out what it's doing: 
 
 https://temlib.org/AtariForumWiki/index.php/Memory_Map_for_Atari_ST,STE,TT_and_Falcon
 
-Some typical offenders are NVDI 5.0, which tries to touch the ST Palette 
+Some typical offenders are NVDI 5.0, which tries to touch the ST Palette
 register at 0xffff_8240, and GemBench which attempts to access the IKBD
 data register at 0xffff_fc02.
 
@@ -144,7 +127,7 @@ Currently only 640x480 monochrome mode is supported, due to quirks of the
 VGA architecture. EmuTOS expects a linear framebuffer, but the ET4000 like
 most ISA VGA cards uses a banked memory access scheme. Only video modes with
 a packed or single-plan layout that fit entirely in the 64k window can be
-supported without complicated hacks.
+supported without complicated hacks or a custom VDI.
 
 The current VGA mode 12h implementation could be made to work with any VGA
 card, although it would require MONK5 changes as its implementation is
@@ -154,7 +137,7 @@ Supported PT68K5 hardware
 - - - - - - - - - - - - -
 
 - 68020/68881 CPU/FPU
-- 64M RAM
+- 64-128M RAM
 - Hardware realtime clock
 - Onboard IDE controller
 - PTI XTIDE controller
@@ -172,6 +155,5 @@ Unlikely to be supported:
 - Sound
 - SCSI
 
-This ROM image has been built with GCC 13.1.0 using:
-make ELF=1 pt68k5
-
+This ROM image has been built with GCC 13.1.0 on macOS using:
+    make ELF=1 pt68k5
