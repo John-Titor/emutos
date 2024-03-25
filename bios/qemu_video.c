@@ -12,6 +12,7 @@
  */
 
 #include "emutos.h"
+#ifdef MACHINE_QEMU
 #include "qemu.h"
 #include "bios.h"
 #include "xbios.h"
@@ -24,8 +25,6 @@
 #include "screen.h"
 #include "string.h"
 #include "cookie.h"
-
-#ifdef MACHINE_QEMU
 
 /* mono palette */
 static const ULONG st_1_palette[2] = {

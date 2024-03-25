@@ -12,6 +12,7 @@
  */
 
 #include "emutos.h"
+#ifdef MACHINE_QEMU
 #include "qemu.h"
 #include "vectors.h"
 #include "biosext.h"
@@ -1368,3 +1369,5 @@ void qemu_pci_spurious(void)
 {
     panic("PCI: spurious interrupt\n");
 }
+
+#endif /* MACHINE_QEMU */
