@@ -983,13 +983,13 @@ obj/lisaboot.o: obj/ramtos.h
 
 EMUTOS_PT68K5 = emutosk5.rom
 PT68K5_DEFS =
-CPUFLAGS = -m68020
 TOCLEAN += $(EMUTOS_PT68K5)
 
 .PHONY: pt68k5
 NODEP += pt68k5
 pt68k5: UNIQUE = $(COUNTRY)
 pt68k5: OPTFLAGS = $(SMALL_OPTFLAGS)
+pt68k5: CPUFLAGS = -m68020
 pt68k5: override DEF += -DTARGET_PT68K5 $(PT68K5_DEFS)
 pt68k5: WITH_AES=1
 pt68k5:
