@@ -22,6 +22,7 @@
 #ifdef MACHINE_IP940
 #include "ip940.h"
 #include "clock.h"
+#include "processor.h"
 #include "screen.h"
 #include "tosvars.h"
 
@@ -39,6 +40,17 @@ void screen_init_mode(void)
     /* more or less correct */
     sshiftmod = ST_HIGH;
     defshiftmod = ST_HIGH;
+}
+
+/*
+ * Override processor.S:processor_init, which does unhelpful things
+ * like turning off the MMU and messing with the TTRs.
+ */
+void processor_init(void)
+{
+    longframe = 1;
+    mcpu = 0x00400000;
+    fputype = 0x00080000;
 }
 
 #endif /* MACHINE_IP940 */
