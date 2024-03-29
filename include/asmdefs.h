@@ -78,3 +78,9 @@
 /* Pseudo-ops not yet understood by gas */
 #define jhs jcc
 #define jlo jcs
+
+/*
+ * Mark a symbol as weak, so that it can be overridden by
+ * machine- or target-specific code.
+ */
+#define ASM_OVERRIDEABLE(_x)	.weak _x
