@@ -109,6 +109,10 @@ void duart_rs232_interrupt_handler_channel_a(void);
 void duart_init_system_timer(void);
 #endif
 
+#if CONF_WITH_COM16X
+LONG bconoutCOM16x(WORD, WORD);
+#endif
+
 #if BCONMAP_AVAILABLE
 /*
  * Bconmap() stuff
