@@ -247,6 +247,7 @@ nosfp:  move.l  a1,(0x08).w     // restore bus error
 /*
  * void processor_init(void) - sets mcpu and fputype.
  */
+ASM_OVERRIDEABLE(_processor_init)
 _processor_init:
 #ifndef __mcoldfire__           // On ColdFire, the caches are enabled by the pre-OS
         jbsr    _detect_cpu
