@@ -121,6 +121,17 @@ static void kprintf_outc_duartB(int c)
 }
 #endif
 
+#if COM16X_DEBUG_PRINT
+static void kprintf_outc_COM16x(int c)
+{
+    /* Raw terminals usually require CRLF */
+    if (c == '\n')
+        bconoutCOM16x(1,'\r');
+
+    bconoutCOM16x(1,c);
+}
+#endif
+
 #if DETECT_NATIVE_FEATURES
 static void kprintf_outc_natfeat(int c)
 {
@@ -229,6 +240,19 @@ static int vkprintf(const char *fmt, va_list ap)
     }
 #endif
 
+#if COM16X_DEBUG_PRINT
+    {
+        int rc;
+        char *stacksave = NULL;
+        if (boot_status&DOS_AVAILABLE)  /* if Super() is available, */
+            if (!Super(1L))             /* check for user state.    */
+                stacksave = (char *)Super(0L);  /* if so, switch to super   */
+        rc = doprintf(kprintf_outc_COM16x, fmt, ap);
+        if (stacksave)                  /* if we switched, */
+            SuperToUser(stacksave);     /* switch back.    */
+        return rc;
+    }
+#endif
 #if COLDFIRE_DEBUG_PRINT
     return doprintf(kprintf_outc_coldfire_rs232, fmt, ap);
 #endif

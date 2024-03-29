@@ -1388,6 +1388,46 @@ static ULONG rsconfDUARTB(WORD baud, WORD ctrl, WORD ucr, WORD rsr, WORD tsr, WO
 
 #endif /* CONF_WITH_DUART */
 
+#if CONF_WITH_COM16X    /* 16x50 UART */
+
+#define COM16X_THR  0x00
+#define COM16X_RHR  0x00
+#define COM16X_DLL  0x00
+#define COM16X_DLM  0x01
+#define COM16X_FCR  0x02
+#define COM16X_EFR  0x02
+#define COM16X_LCR  0x03
+#define COM16X_LCR_TXRDY    (1<<5)
+#define COM16X_LSR  0x05
+#define COM16X_ICR  0x05
+#define COM16X_SPR  0x07
+
+static UBYTE read_com16x(UBYTE reg)
+{
+    return *(const volatile UBYTE *)(0x02110003L + (reg << 2));
+}
+
+static void write_com16x(UBYTE reg, UBYTE val)
+{
+    *(volatile UBYTE *)(0x02110003L + (reg << 2)) = val;
+}
+
+static LONG bcostatCOM16x(void) {
+    return (read_com16x(COM16X_LSR) & COM16X_LCR_TXRDY) ? -1L : 0L;
+}
+
+LONG bconoutCOM16x(WORD dev, WORD b) {
+    while (!bcostatCOM16x())
+    {
+        /* Wait */
+    }
+
+    /* Send the byte */
+    write_com16x(COM16X_THR, (UBYTE) b);
+    return 0L;
+}
+#endif /* CONF_WITH_COM16X */
+
 #if BCONMAP_AVAILABLE
 static ULONG rsconf_dummy(WORD baud, WORD ctrl, WORD ucr, WORD rsr, WORD tsr, WORD scr)
 {
