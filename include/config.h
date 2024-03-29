@@ -688,6 +688,57 @@
 #endif
 
 /*
+ * Defaults for the IP940 (ROM) target.
+ */
+#ifdef TARGET_IP940
+# define MACHINE_IP940
+#endif
+
+/*
+ * Defaults for the IP940 machine.
+ */
+#ifdef MACHINE_IP940
+# define CONF_ATARI_HARDWARE 0
+# define CONF_WITH_ALT_RAM 0
+   /* Can't set this as it will turn off the PMMU / D$ */
+# define CONF_WITH_ADVANCED_CPU 0
+   /* PMMU already in use mapping RAM / ROM */
+# define CONF_WITH_68040_PMMU 0
+   /* does nothing */
+# define CONF_WITH_RESET 0
+# define CONF_WITH_IDE 1
+# define CONF_IDE_NO_RESET 1
+# define CONF_WITH_PRINTER_ICON 0
+# define CONF_SERIAL_CONSOLE 1
+# if CONF_SERIAL_CONSOLE
+#  ifndef CONF_SERIAL_CONSOLE_ANSI
+#   define CONF_SERIAL_CONSOLE_ANSI 1
+#  endif
+#  ifndef CONF_SERIAL_CONSOLE_POLLING_MODE
+#   define CONF_SERIAL_CONSOLE_POLLING_MODE 0
+#  endif
+#  ifndef DEFAULT_BAUDRATE
+#   define DEFAULT_BAUDRATE B9600
+#  endif
+# endif
+# ifndef ALWAYS_SHOW_INITINFO
+#  define ALWAYS_SHOW_INITINFO 1
+# endif
+# ifndef CONF_WITH_BUS_ERROR
+#  define CONF_WITH_BUS_ERROR 1
+# endif
+# ifndef USE_STOP_INSN_TO_FREE_HOST_CPU
+#  define USE_STOP_INSN_TO_FREE_HOST_CPU 1
+# endif
+# ifndef ENABLE_KDEBUG
+#  define ENABLE_KDEBUG 1
+# endif
+# if ENABLE_KDEBUG
+#  define RS232_DEBUG_PRINT 1
+# endif
+#endif
+
+/*
  * Defaults for the M548x machine
  */
 #ifdef MACHINE_M548X
