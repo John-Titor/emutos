@@ -118,7 +118,7 @@ struct IDE
 #define IDE_WRITE_COMMAND_HEAD(i,a,b) \
     { i->head = b; i->command = a; }
 
-#if defined(MACHINE_PT68K5)
+#if defined(MACHINE_PT68K5) || defined(MACHINE_IP940)
 # define IDE_WRITE_CONTROL(i,a)
 # define IDE_READ_ALT_STATUS(i)    i->command
 #else
@@ -227,6 +227,35 @@ struct IDE
 };
 
 #define ide_interface       ((volatile struct IDE *)IDE_XTIDE_BASE)
+
+#elif defined(MACHINE_IP940)
+
+#define NUM_IDE_INTERFACES  1
+#define CFIDE_BASE          0x02100040UL
+
+struct IDE
+{
+    XFERWIDTH data;
+    UBYTE filler02;
+    UBYTE features; /* Read: error */
+    UBYTE filler04;
+    UBYTE sector_count;
+    UBYTE filler06;
+    UBYTE sector_number;
+    UBYTE filler08;
+    UBYTE cylinder_low;
+    UBYTE filler0A;
+    UBYTE cylinder_high;
+    UBYTE filler0C;
+    UBYTE head;
+    UBYTE filler0E;
+    UBYTE command; /* Read: status */
+    /*
+     * No access to the alternate status and control registers. No interrupts, so that's OK.
+     */
+};
+
+#define ide_interface       ((volatile struct IDE *)CFIDE_BASE)
 
 #else
 
