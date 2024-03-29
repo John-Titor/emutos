@@ -62,6 +62,7 @@ help:
 	@echo "amigaflopvampire $(EMUTOS_VAMPIRE_ADF), EmuTOS RAM as Amiga boot floppy optimized for Vampire V2"
 	@echo "lisaflop $(EMUTOS_DC42), EmuTOS RAM as Apple Lisa boot floppy"
 	@echo "pt68k5 $(EMUTOS_PT68K5), EmuTOS for PT68K5"
+	@echo "ip940 $(EMUTOS_IP940), EmuTOS for IP940 ROM"
 	@echo "m548x-dbug $(SREC_M548X_DBUG), EmuTOS-RAM for dBUG on ColdFire Evaluation Boards"
 	@echo "m548x-bas  $(SREC_M548X_BAS), EmuTOS for BaS_gcc on ColdFire Evaluation Boards"
 	@echo "m548x-prg  emutos.prg, a RAM tos for ColdFire Evaluation Boards with BaS_gcc"
@@ -308,6 +309,7 @@ bios_src +=  memory.S processor.S vectors.S aciavecs.S bios.c xbios.c acsi.c \
              amiga.c amiga2.S spi_vamp.c \
              lisa.c lisa2.S \
              pt68k5.c \
+             ip940.c \
              qemu.c qemu_pci.c qemu_video.c qemu2.S \
              delay.c delayasm.S sd.c memory2.c bootparams.c scsi.c nova.c \
              dsp.c dsp2.S \
@@ -1011,7 +1013,31 @@ NODEP += pt68k5_installboot
 pt68k5_installboot: tools/pt68k5_installboot.c
 	$(NATIVECC) $< -o $@
 
+#
+# ip940
+#
+EMUTOS_IP940 = emutos940.s19
+EMUTOS_IP940_ELF = emutos940.elf
+IP940_DEFS =
+TOCLEAN += $(EMUTOS_IP940) $(EMUTOS_IP490_ELF)
 
+.PHONY: ip940
+NODEP += ip940
+ip940: UNIQUE = $(COUNTRY)
+ip940: CPUFLAGS = -m68040
+ip940: override DEF += -DTARGET_IP940 $(IP940_DEFS)
+ip940: WITH_AES = 0
+ip940:
+	$(MAKE) CPUFLAGS='$(CPUFLAGS)' DEF='$(DEF)' OPTFLAGS='$(OPTFLAGS)' WITH_AES=$(WITH_AES) UNIQUE=$(UNIQUE) EMUTOS_IP940=$(EMUTOS_IP940) $(EMUTOS_IP940)
+	@printf "$(LOCALCONFINFO)"
+
+obj/ip940_loader.o: emutos.img
+
+$(EMUTOS_IP940_ELF): obj/ip940_loader.o
+	$(LD) $+ -Wl,-Ttext=0x4000 -e start -o $@
+
+$(EMUTOS_IP940): $(EMUTOS_IP940_ELF)
+	$(OBJCOPY) -O srec --srec-forceS3 $< $@
 
 #
 # localisation support: create bios/ctables.h include/i18nconf.h
