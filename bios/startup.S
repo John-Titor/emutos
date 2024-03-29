@@ -483,7 +483,7 @@ cache_done:
 /*
  * disable the MMU
  */
-#if !defined(__mcoldfire__) && !defined(MACHINE_LISA)
+#if !defined(__mcoldfire__) && !defined(MACHINE_LISA) && !defined(MACHINE_IP940)
         move.l  #not_68030,0x2c    // PMOVE is lineF on non-68030 systems
         lea     zero,a0
         PMOVE_A0_TTR0              // first we initialise the TTRs (ACRs on a 68ec030)

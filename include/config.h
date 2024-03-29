@@ -688,8 +688,8 @@
 #ifdef MACHINE_IP940
 # define CONF_ATARI_HARDWARE 0
 # define CONF_WITH_ALT_RAM 0
-   /* Can't set this as it will turn off the PMMU / D$ */
-# define CONF_WITH_ADVANCED_CPU 0
+# define CONF_WITH_ADVANCED_CPU 1
+# define CONF_WITH_CACHE_CONTROL 0
    /* PMMU already in use mapping RAM / ROM */
 # define CONF_WITH_68040_PMMU 0
    /* does nothing */
