@@ -15,7 +15,7 @@
 
 #include "iorec.h"
 
-#define BCONMAP_AVAILABLE (CONF_WITH_SCC || CONF_WITH_TT_MFP || CONF_WITH_DUART)
+#define BCONMAP_AVAILABLE (CONF_WITH_SCC || CONF_WITH_TT_MFP || CONF_WITH_DUART || CONF_WITH_BCONMAP)
 
 /*
  * baud rate codes
@@ -107,10 +107,6 @@ void duart_rs232_interrupt_handler_channel_b(void);
 void duart_rs232_enable_interrupt(void);
 void duart_rs232_interrupt_handler_channel_a(void);
 void duart_init_system_timer(void);
-#endif
-
-#if CONF_WITH_COM16X
-LONG bconoutCOM16x(WORD, WORD);
 #endif
 
 #if BCONMAP_AVAILABLE
