@@ -121,16 +121,14 @@ static void kprintf_outc_duartB(int c)
 }
 #endif
 
-#if COM16X_DEBUG_PRINT
-static void kprintf_outc_COM16x(int c)
+OVERRIDEABLE
+void kprintf_outc(int c)
 {
-    /* Raw terminals usually require CRLF */
-    if (c == '\n')
-        bconoutCOM16x(1,'\r');
-
-    bconoutCOM16x(1,c);
+    /*
+     * This function exists so that machine-specific serial drivers
+     * can support kprintf without adding explicit code to this file.
+     */
 }
-#endif
 
 #if DETECT_NATIVE_FEATURES
 static void kprintf_outc_natfeat(int c)
@@ -240,19 +238,6 @@ static int vkprintf(const char *fmt, va_list ap)
     }
 #endif
 
-#if COM16X_DEBUG_PRINT
-    {
-        int rc;
-        char *stacksave = NULL;
-        if (boot_status&DOS_AVAILABLE)  /* if Super() is available, */
-            if (!Super(1L))             /* check for user state.    */
-                stacksave = (char *)Super(0L);  /* if so, switch to super   */
-        rc = doprintf(kprintf_outc_COM16x, fmt, ap);
-        if (stacksave)                  /* if we switched, */
-            SuperToUser(stacksave);     /* switch back.    */
-        return rc;
-    }
-#endif
 #if COLDFIRE_DEBUG_PRINT
     return doprintf(kprintf_outc_coldfire_rs232, fmt, ap);
 #endif
@@ -291,11 +276,8 @@ static int vkprintf(const char *fmt, va_list ap)
     }
 #endif
 
-    /* let us hope nobody is doing 'pretty-print' with kprintf by
-     * printing stuff till the amount of characters equals something,
-     * for it will generate an endless loop if return value is zero!
-     */
-    return 0;
+    /* use the overrideable output path */
+    return doprintf(kprintf_outc, fmt, ap);
 }
 
 
