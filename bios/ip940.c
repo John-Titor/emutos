@@ -54,7 +54,7 @@ void screen_init_mode(void)
 void processor_init(void)
 {
     longframe = 1;
-    mcpu = 0x00400000;
+    mcpu = 40;
     fputype = 0x00080000;
 }
 
