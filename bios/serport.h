@@ -37,6 +37,13 @@
 #define B75    14
 #define B50    15
 
+#define B230400 10
+#define B115200 11
+#define B57600  12
+#define B38400  13
+#define B153600 14
+#define B78600  15
+
 #define MIN_BAUDRATE_CODE   B19200
 #define MAX_BAUDRATE_CODE   B50
 
