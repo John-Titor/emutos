@@ -3,7 +3,7 @@
  *
  * This file exists to centralise the handling of serial port hardware.
  *
- * Copyright (C) 2013-2024 The EmuTOS development team
+ * Copyright (C) 2013-2022 The EmuTOS development team
  *
  * Authors:
  *  RFB    Roger Burrows
@@ -167,7 +167,12 @@ static const struct mfp_rs232_table mfp_rs232_init[] = {
     { /*  2000 */  1, 10 },
     { /*  1800 */  1, 11 },
     { /*  1200 */  1, 16 },
+#ifdef MACHINE_BITSY_V1
+    { /*   600 */  1, 24 }, /* Yields 800*3=2400 baud on BITSY. */
+#else
     { /*   600 */  1, 32 },
+#endif
+
     { /*   300 */  1, 64 },
     { /*   200 */  1, 96 },
     { /*   150 */  1, 128 },
@@ -1128,7 +1133,7 @@ static ULONG rsconf_duart(UBYTE port, EXT_IOREC *iorec, WORD baud, WORD ctrl, WO
     UBYTE mode_reg_num      = port == 0 ? DUART_MRA  : DUART_MRB;
     UBYTE clock_sel_reg_num = port == 0 ? DUART_CSRA : DUART_CSRB;
     UBYTE command_reg_num   = port == 0 ? DUART_CRA  : DUART_CRB;
-    UBYTE rts_output_bit    = port == 0 ? DUART_OP0_RTS : DUART_OP1_RTS; 
+    UBYTE rts_output_bit    = port == 0 ? DUART_OP0_RTS : DUART_OP1_RTS;
     ULONG old;
 
     if (baud == -2)     /* wants current baud rate */
@@ -1148,11 +1153,26 @@ static ULONG rsconf_duart(UBYTE port, EXT_IOREC *iorec, WORD baud, WORD ctrl, WO
      * set baudrate from lookup table
      */
     if ((baud >= MIN_BAUDRATE_CODE ) && (baud <= MAX_BAUDRATE_CODE)) {
-        /* Baud rates not supported by DUART are adjusted to nearby ones that are supported. */
-        if (baud == B3600) baud = B2400;
-        else if (baud == B2000 || baud == B1800) baud = B1200;
-        else if (baud == B50) baud = B75;
-        write_duart(clock_sel_reg_num, baudset[baud]);
+        UBYTE baud_rate_value = 0;
+#ifdef CONF_WITH_DUART_EXTENDED_BAUD_RATES
+        // Special handling for 115200.
+        if (baud == B115200) {
+            write_duart(command_reg_num, 0xA0); // Enable extended TX rates
+            write_duart(command_reg_num, 0x80); // Enable extended RX rates
+            baud_rate_value = 0x88;
+        } else {
+            write_duart(command_reg_num, 0xB0); // Disable extended TX rates
+            write_duart(command_reg_num, 0x90); // Disable extended RX rates
+#endif
+            /* Baud rates not supported by DUART are adjusted to nearby ones that are supported. */
+            if (baud == B3600) baud = B2400;
+            else if (baud == B2000 || baud == B1800) baud = B1200;
+            else if (baud == B50) baud = B75;
+            baud_rate_value = baudset[baud];
+#ifdef CONF_WITH_DUART_EXTENDED_BAUD_RATES
+        }
+#endif
+        write_duart(clock_sel_reg_num, baud_rate_value);
     }
     update_iorec(iorec, baud, ctrl, ucr);
 
@@ -1190,11 +1210,11 @@ static ULONG rsconf_duart(UBYTE port, EXT_IOREC *iorec, WORD baud, WORD ctrl, WO
 #else
     write_duart(DUART_ACR, 0xf0); /* ACR[7] = 1, timer mode, x16 prescaler */
 #endif
-    /* For hardware flow control purposes, we need to *set* the RTS output port bit (bit 0 for 
+    /* For hardware flow control purposes, we need to *set* the RTS output port bit (bit 0 for
      * port A, bit 1 for port B). Setting an output port bin cause the actual pin
-     * to be zero, which is how we want to start (i.e., active-low RTS is asserted). 
+     * to be zero, which is how we want to start (i.e., active-low RTS is asserted).
      *
-     * If hardware flow control is disabled, this action has no effect because no one will 
+     * If hardware flow control is disabled, this action has no effect because no one will
      * be paying attention to RTS/CTS anyway.
      */
     write_duart(DUART_SETOPR, rts_output_bit);
@@ -1211,12 +1231,7 @@ static ULONG rsconf_duart(UBYTE port, EXT_IOREC *iorec, WORD baud, WORD ctrl, WO
 void duart_rs232_interrupt_handler_channel_a(void)
 {
     while(read_duart(DUART_SRA) & DUART_SR_RXRDY) {
-        UBYTE data = read_duart(DUART_RHRA);
-        push_serial_iorec(&iorecDUARTA.in, data);
-#if CONF_SERIAL_CONSOLE && !CONF_SERIAL_CONSOLE_POLLING_MODE
-        /* And append a new IOREC value into the IKBD buffer */
-        push_ascii_ikbdiorec(data);
-#endif
+        push_serial_iorec(&iorecDUARTA.in, read_duart(DUART_RHRA));
         if (iorecDUARTA.flowctrl == FLOW_CTRL_HARD || iorecDUARTA.flowctrl == FLOW_CTRL_BOTH) {
             IOREC *in = &iorecDUARTA.in;
             WORD size = (WORD)(in->tail - in->head);
@@ -1256,6 +1271,9 @@ static void duart_init_interrupts_common(void)
 
 #if CONF_DUART_TIMER_C
     IMR_value |= DUART_IMR_COUNTER_READY;
+#endif
+#if CONF_WITH_DUART_CHANNEL_B
+    IMR_value |= DUART_IMR_RXRDY_B;
 #endif
     /* Enable the interrupt(s). */
     write_duart(DUART_IMR, IMR_value);
@@ -1454,7 +1472,7 @@ static void init_bconmap(void)
          * port A for file transfers since flow control pins are available on the
          * port A header but not the port B header.
          */
-        bconmap_root.mapped_device = 11;
+        bconmap_root.mapped_device = 10;
 #else
         bconmap_root.mapped_device = 10;
 #endif
@@ -1532,7 +1550,7 @@ void init_serport(void)
     iorecDUARTB.out.buf = obufDUARTB;
 #endif /* CONF_WITH_DUART_CHANNEL_B */
     if (has_duart) {
-        rsconfDUARTA(DEFAULT_BAUDRATE, 0, 0x88, 0, 0, 0);
+        //rsconfDUARTA(DEFAULT_BAUDRATE, 0, 0x88, 0, 0, 0);
 #if CONF_WITH_DUART_CHANNEL_B
         rsconfDUARTB(DEFAULT_BAUDRATE, 0, 0x88, 0, 0, 0);
 	bconoutDUARTB(0, '*');
@@ -1550,7 +1568,7 @@ void init_serport(void)
 #endif
 
 #if !CONF_SERIAL_IKBD
-    (*rsconfptr)(DEFAULT_BAUDRATE, 0, 0x88, 1, 1, 0);
+    //(*rsconfptr)(DEFAULT_BAUDRATE, 0, 0x88, 1, 1, 0);
 #endif
 
 #if CONF_WITH_MFP_RS232
