@@ -706,6 +706,7 @@
 # define CONF_WITH_68040_PMMU 0
    /* does nothing on this hardware */
 # define CONF_WITH_RESET 0
+# define CONF_DETECT_FIRST_BOOT_WITHOUT_MEMCONF 1
 # define CONF_WITH_IDE 1
 # define CONF_WITH_BCONMAP 1
 # define CONF_IDE_NO_RESET 1
