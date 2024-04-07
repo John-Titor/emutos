@@ -22,6 +22,7 @@
 #ifdef MACHINE_IP940
 #include "asm.h"
 #include "clock.h"
+#include "delay.h"
 #include "ip940.h"
 #include "machine.h"
 #include "processor.h"
@@ -30,6 +31,7 @@
 #include "string.h"
 #include "tosvars.h"
 #include "vectors.h"
+
 
 LONG gettime(void)
 {
@@ -60,6 +62,22 @@ void processor_init(void)
     longframe = 1;
     mcpu = 40;
     fputype = 0x00080000;
+
+    /*
+     * Enable the instruction and data caches.
+     *
+     * Caches are normally off during the boot flow, and startup.S
+     * explicitly turns them off as well, so it's safe to assume
+     * they are off and there is nothing dirty in a writeback region.
+     * We invalidate to ensure that there's nothing left over from
+     * before the last reset.
+     */
+    __asm__ volatile("    cinva  bc                 \n"
+                     "    move.l #0x80008000,d0     \n"
+                     "    movec  d0,cacr            \n"
+                     : : : "d0", "memory", "cc"
+                     );
+
 }
 
 /*
@@ -81,8 +99,20 @@ void machine_init(void)
     VEC_LEVEL4 = vbl_wrapper;
     VEC_LEVEL6 = int_timerc;
 
+    /* I$/D$ on */
+    loopcount_1_msec = 11000;
+
     /* enable the 200Hz/50Hz timers */
     TIMER_START = 0;
+}
+
+/*
+ * Override detect_32bit_address_bus, as it will hang.
+ */
+BOOL
+detect_32bit_address_bus(void)
+{
+    return 1;
 }
 
 const char *
