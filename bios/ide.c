@@ -235,20 +235,21 @@ struct IDE
 
 struct IDE
 {
-    XFERWIDTH data;
-    UBYTE filler02;
+    UWORD filler00;
+    UWORD data;
+    UBYTE filler01[3];
     UBYTE features; /* Read: error */
-    UBYTE filler04;
+    UBYTE filler02[3];
     UBYTE sector_count;
-    UBYTE filler06;
+    UBYTE filler03[3];
     UBYTE sector_number;
-    UBYTE filler08;
+    UBYTE filler04[3];
     UBYTE cylinder_low;
-    UBYTE filler0A;
+    UBYTE filler05[3];
     UBYTE cylinder_high;
-    UBYTE filler0C;
+    UBYTE filler06[3];
     UBYTE head;
-    UBYTE filler0E;
+    UBYTE filler07[3];
     UBYTE command; /* Read: status */
     /*
      * No access to the alternate status and control registers. No interrupts, so that's OK.
