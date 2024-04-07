@@ -153,6 +153,9 @@ typedef struct
 {
     volatile UBYTE *io;
     UBYTE       acr_shadow;
+    WORD        rate_index;
+    WORD        flow_code;
+    WORD        line_code;
     EXT_IOREC   iorec;
     UBYTE       ibuf[COM_BUFSIZE];
 } com_sc_t;
@@ -238,12 +241,23 @@ com_bconout(WORD port, WORD dev, WORD b)
     return 1L;
 }
 
+static void
+com_drain(com_sc_t *sc)
+{
+    WORD    pollcount = 133;        /* 128B FIFO @ 9600bps = 133ms */
+
+    while (!(com_reg_read(sc, QUART_LSR) & QUART_LSR_TXEMT) && pollcount--) {
+        delay_loop(loopcount_1_msec);
+    }
+}
+
 static ULONG
 com_rsconf(WORD port, WORD speed, WORD flow, WORD ucr, WORD rsr, WORD tsr, WORD scr)
 {
     com_sc_t * const sc = &com_sc[port];
     LONG ret;
 
+    /* check for current speed request */
     if (speed == -2) {
         return sc->iorec.baudrate;
     }
@@ -255,24 +269,50 @@ com_rsconf(WORD port, WORD speed, WORD flow, WORD ucr, WORD rsr, WORD tsr, WORD 
     /* check for legal speed code & set */
     for (WORD i = 0; com_rate_table[i].code != -1; i++) {
         if (com_rate_table[i].code == speed) {
-            com_reg_write(sc, QUART_FCR, QUART_FCR_FIFOEN);       /* enable FIFOs, extended mode */
-            com_reg_write(sc, QUART_LCR, QUART_LCR_EXTEN);        /* enable extended registers */
-            com_reg_write(sc, QUART_EFR, QUART_EFR_RTS | QUART_EFR_ENHMODE);
-            com_reg_write(sc, QUART_LCR, QUART_LCR_DLAB);         /* enable divisor latch */
-            com_reg_write(sc, QUART_DLM, com_rate_table[i].dlm);  /* load divisor */
-            com_reg_write(sc, QUART_DLL, com_rate_table[i].dll);
-            com_reg_write(sc, QUART_LCR, 0x03);                   /* XXX always n81 */
-            com_reg_write(sc, QUART_SPR, QUART_CPR);              /* select CPR */
-            com_reg_write(sc, QUART_ICR, com_rate_table[i].cpr);
-            com_reg_write(sc, QUART_SPR, QUART_TCR);              /* select TCR */
-            com_reg_write(sc, QUART_ICR, com_rate_table[i].tcr);
-            com_reg_write(sc, QUART_MCR, QUART_MCR_INTEN | QUART_MCR_PRESCALE);
-            com_reg_write(sc, QUART_IER, QUART_IER_RXRDY);
+            sc->rate_index = i;
+            sc->iorec.baudrate = speed;
             break;
         }
     }
-    /* XXX flow */
-    /* XXX ucr */
+
+    /* update flow control selection */
+    if ((flow >= MIN_FLOW_CTRL) && (flow < MAX_FLOW_CTRL)) {
+        sc->flow_code = flow;
+    }
+
+    /* update data format selection */
+    if (ucr > 0) {
+        /* data length */
+        sc->line_code = 3 - ((ucr & 0x60) >> 5);
+
+        /* stop bit(s) */
+        sc->line_code |= (ucr & 0x10) ? QUART_LCR_STOP2 : QUART_LCR_STOP1;
+
+        /* parity */
+        if (ucr & 0x04) {
+            sc->line_code |= (ucr & 0x02) ? QUART_LCR_PAREVEN : QUART_LCR_PARODD;
+        }
+    }
+
+    /* try to drain the transmitter */
+    com_drain(sc);
+
+    /* configure as requested */
+    com_reg_write(sc, QUART_FCR, QUART_FCR_FIFOEN);       /* enable FIFOs, extended mode */
+    com_reg_write(sc, QUART_LCR, QUART_LCR_EXTEN);        /* enable extended registers */
+    com_reg_write(sc, QUART_EFR, QUART_EFR_RTS | QUART_EFR_ENHMODE);
+    com_reg_write(sc, QUART_LCR, QUART_LCR_DLAB);         /* enable divisor latch */
+    com_reg_write(sc, QUART_DLM, com_rate_table[sc->rate_index].dlm);
+    com_reg_write(sc, QUART_DLL, com_rate_table[sc->rate_index].dll);
+//    com_reg_write(sc, QUART_LCR, 0x03);                   /* XXX always n81 */
+    com_reg_write(sc, QUART_LCR, sc->line_code);
+    com_reg_write(sc, QUART_SPR, QUART_CPR);              /* select CPR */
+    com_reg_write(sc, QUART_ICR, com_rate_table[sc->rate_index].cpr);
+    com_reg_write(sc, QUART_SPR, QUART_TCR);              /* select TCR */
+    com_reg_write(sc, QUART_ICR, com_rate_table[sc->rate_index].tcr);
+    com_reg_write(sc, QUART_MCR, QUART_MCR_INTEN | QUART_MCR_PRESCALE);
+    com_reg_write(sc, QUART_IER, QUART_IER_RXRDY);
+    /* XXX handle flow control */
 
     return ret;
 }
