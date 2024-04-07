@@ -362,7 +362,6 @@ com_interrupt(WORD port)
             /* buffer overflow, drop byte */
             /* XXX we could just turn off interrupts here and let the FIFO fill up */
         } else {
-            KDEBUG(("com_interrupt: rx %02x\n", b));
             in->buf[tail] = b;
         }
         in->tail = tail;
