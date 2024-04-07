@@ -708,7 +708,7 @@
 #   define CONF_SERIAL_CONSOLE_POLLING_MODE 1
 #  endif
 #  ifndef DEFAULT_BAUDRATE
-#   define DEFAULT_BAUDRATE 115
+#   define DEFAULT_BAUDRATE B115200
 #  endif
 # endif
 # ifndef ALWAYS_SHOW_INITINFO
