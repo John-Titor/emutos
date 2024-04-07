@@ -24,6 +24,7 @@
 #include "clock.h"
 #include "delay.h"
 #include "ip940.h"
+#include "ikbd.h"
 #include "machine.h"
 #include "processor.h"
 #include "screen.h"
@@ -324,7 +325,7 @@ com_rsconf(WORD port, WORD speed, WORD flow, WORD ucr, WORD rsr, WORD tsr, WORD 
         }
     }
 
-    /* try to drain the transmitter */
+    /* wait for the TX FIFO to drain */
     com_drain(sc);
 
     /* configure as requested */
@@ -334,7 +335,6 @@ com_rsconf(WORD port, WORD speed, WORD flow, WORD ucr, WORD rsr, WORD tsr, WORD 
     com_reg_write(sc, QUART_LCR, QUART_LCR_DLAB);         /* enable divisor latch */
     com_reg_write(sc, QUART_DLM, com_rate_table[sc->rate_index].dlm);
     com_reg_write(sc, QUART_DLL, com_rate_table[sc->rate_index].dll);
-//    com_reg_write(sc, QUART_LCR, 0x03);                   /* XXX always n81 */
     com_reg_write(sc, QUART_LCR, sc->line_code);
     com_reg_write(sc, QUART_SPR, QUART_CPR);              /* select CPR */
     com_reg_write(sc, QUART_ICR, com_rate_table[sc->rate_index].cpr);
