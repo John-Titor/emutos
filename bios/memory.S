@@ -665,6 +665,7 @@ call_bzero_a0_a1:
 //   d0.w = 1 if 32-bit, or 0 if 24-bit
 // Clobbers:
 //   - Exception Vectors
+ASM_OVERRIDEABLE(_detect_32bit_address_bus)
 _detect_32bit_address_bus:
         movem.l d2/a2-a4,-(sp)          // Save registers
         move.l  sp,a2                   // Save sp before exception
