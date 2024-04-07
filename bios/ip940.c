@@ -50,6 +50,10 @@ void screen_init_mode(void)
 /*
  * Override processor.S:processor_init, which does unhelpful things
  * like turning off the MMU and messing with the TTRs.
+ *
+ * For IP940 the loader configures the MMU to present a compatible
+ * memory map, and DTT0 to map IP940 I/O space, so we need those
+ * mappings to be left alone.
  */
 void processor_init(void)
 {
@@ -94,16 +98,27 @@ machine_name(void)
  * selected) automatic hardware flow control.
  *
  * Note: COM_BUFSIZE must be 256; both for TOS compatibility and
- * because we exploit the power-of-2 nature of the value here.
+ *       because we exploit the power-of-2 nature of the value
+ *       here.
  *
  * Note: we use a full EXT_IOREC even though only the input
  *       side is technically exposed because a pointer to
  *       the input side is vended to applications and who
  *       knows what assumptions they make...
+ *
+ * Note: access to indexed registers requires masking interrupts to
+ *       prevent interference from handler code.
  */
 
 #define NUM_COM_PORTS   4
 #define COM_BUFSIZE     256
+
+#ifndef B921600
+# define B921600    921
+#endif
+#ifndef B460800
+# define B460800    460
+#endif
 
 static struct
 {
@@ -113,30 +128,24 @@ static struct
     UBYTE   dll;
     UBYTE   tcr;
 } com_rate_table[] = {
-    { B230400,  0x59, 0x00, 0x01, 0x0d },
-    { B115200,  0x59, 0x00, 0x02, 0x0d },
-    { B153600,  0x1f, 0x00, 0x04, 0x0e },
-    { B38400,   0x09, 0x00, 0x1d, 0x0d },
-    { B57600,   0x59, 0x00, 0x04, 0x0d },
-    { B78600,   0x0e, 0x00, 0x1f, 0x00 },
+    { B921600,  0x09, 0x00, 0x02, 0x00 },
+    { B460800,  0x09, 0x00, 0x04, 0x00 },
+    { B230400,  0x08, 0x00, 0x09, 0x00 },
+    { B115200,  0x1d, 0x00, 0x05, 0x00 },
+    { B153600,  0x6d, 0x00, 0x01, 0x00 },
+    { B78600,   0x35, 0x00, 0x04, 0x00 },
+    { B57600,   0x11, 0x00, 0x11, 0x00 },
+    { B38400,   0x0e, 0x00, 0x1f, 0x00 },
     { B19200,   0x1c, 0x00, 0x1f, 0x00 },
     { B9600,    0x1f, 0x00, 0x38, 0x00 },
     { B4800,    0x38, 0x00, 0x3e, 0x00 },
-    { B3600,    0x2e, 0x00, 0x73, 0x0e },
+    { B3600,    0x34, 0x00, 0x59, 0x00 },
     { B2400,    0x4e, 0x00, 0x59, 0x00 },
     { B2000,    0x55, 0x00, 0x62, 0x00 },
     { B1800,    0x59, 0x00, 0x68, 0x00 },
     { B1200,    0x70, 0x00, 0x7c, 0x00 },
     { B600,     0x9c, 0x00, 0xb2, 0x00 },
     { B300,     0xeb, 0x00, 0xec, 0x00 },
-    { B200,     0xff, 0x01, 0x46, 0x00 },
-    { B150,     0xff, 0x01, 0xb3, 0x00 },
-    { B134,     0xff, 0x01, 0xe7, 0x00 },
-    { B110,     0xff, 0x02, 0x52, 0x00 },
-    { B75,      0xff, 0x03, 0x67, 0x00 },
-    { B50,      0xff, 0x05, 0x1b, 0x00 },
-    { 460,      0x09, 0x00, 0x04, 0x00 }, /* 460800 */
-    { 921,      0x09, 0x00, 0x02, 0x00 }, /* 921600 */
     { -1},
 };
 
@@ -150,30 +159,33 @@ typedef struct
 static com_sc_t com_sc[NUM_COM_PORTS];
 
 static void
-quart_write(com_sc_t *sc, UBYTE reg, UBYTE value)
+com_reg_write(com_sc_t *sc, UBYTE reg, UBYTE value)
 {
+
     if (reg & QUART_INDEXED) {
-        quart_write(sc, QUART_SPR, reg & ~QUART_INDEXED);
-        quart_write(sc, QUART_ICR, value);
+        const WORD old_sr = set_sr(0x2700);
+        com_reg_write(sc, QUART_SPR, reg & ~QUART_INDEXED);
+        com_reg_write(sc, QUART_ICR, value);
         if (reg == QUART_ACR) {
             sc->acr_shadow = value;
         }
+        set_sr(old_sr);
     } else {
         *(sc->io + reg) = value;
     }
 }
 
 static UBYTE
-quart_read(com_sc_t *sc, UBYTE reg)
+com_reg_read(com_sc_t *sc, UBYTE reg)
 {
     if (reg & QUART_INDEXED) {
         const WORD old_sr = set_sr(0x2700);
         UBYTE value;
 
-        quart_write(sc, QUART_ACR, sc->acr_shadow | QUART_ACR_RDEN);
-        quart_write(sc, QUART_SPR, reg & ~QUART_INDEXED);
-        value = quart_read(sc, QUART_ICR);
-        quart_write(sc, QUART_ACR, sc->acr_shadow & ~QUART_ACR_RDEN);
+        com_reg_write(sc, QUART_ACR, sc->acr_shadow | QUART_ACR_RDEN);
+        com_reg_write(sc, QUART_SPR, reg & ~QUART_INDEXED);
+        value = com_reg_read(sc, QUART_ICR);
+        com_reg_write(sc, QUART_ACR, sc->acr_shadow & ~QUART_ACR_RDEN);
         set_sr(old_sr);
         return value;
     } else {
@@ -211,7 +223,8 @@ static LONG
 com_bcostat(WORD port)
 {
     com_sc_t * const sc = &com_sc[port];
-    return (quart_read(sc, QUART_LSR) & QUART_LSR_THRE) ? -1L : 0;
+
+    return (com_reg_read(sc, QUART_LSR) & QUART_LSR_THRE) ? -1L : 0;
 }
 
 static LONG
@@ -221,7 +234,7 @@ com_bconout(WORD port, WORD dev, WORD b)
 
     while (!com_bcostat(port)) {
     }
-    quart_write(sc, QUART_THR, (UBYTE)b);
+    com_reg_write(sc, QUART_THR, (UBYTE)b);
     return 1L;
 }
 
@@ -235,25 +248,27 @@ com_rsconf(WORD port, WORD speed, WORD flow, WORD ucr, WORD rsr, WORD tsr, WORD 
         return sc->iorec.baudrate;
     }
     ret = (LONG)sc->iorec.ucr << 24;
-    if (quart_read(sc, QUART_LSR) & QUART_LSR_BREAK) {
+    if (com_reg_read(sc, QUART_LSR) & QUART_LSR_BREAK) {
         ret |= 0x0800;
     }
 
     /* check for legal speed code & set */
     for (WORD i = 0; com_rate_table[i].code != -1; i++) {
         if (com_rate_table[i].code == speed) {
-            quart_write(sc, QUART_FCR, QUART_FCR_FIFOEN);       /* enable FIFOs, extended mode */
-            quart_write(sc, QUART_LCR, QUART_LCR_EXTEN);        /* enable extended registers */
-            quart_write(sc, QUART_EFR, QUART_EFR_RTS | QUART_EFR_ENHMODE);
-            quart_write(sc, QUART_LCR, QUART_LCR_DLAB);         /* enable divisor latch */
-            quart_write(sc, QUART_DLM, com_rate_table[i].dlm);  /* load divisor */
-            quart_write(sc, QUART_DLL, com_rate_table[i].dll);
-            quart_write(sc, QUART_LCR, 0x03);                   /* XXX always n81 */
-            quart_write(sc, QUART_SPR, QUART_CPR);              /* select CPR */
-            quart_write(sc, QUART_ICR, com_rate_table[i].cpr);
-            quart_write(sc, QUART_SPR, QUART_TCR);              /* select TCR */
-            quart_write(sc, QUART_ICR, com_rate_table[i].tcr);
-            quart_write(sc, QUART_MCR, QUART_MCR_INTEN | QUART_MCR_PRESCALE);
+            com_reg_write(sc, QUART_FCR, QUART_FCR_FIFOEN);       /* enable FIFOs, extended mode */
+            com_reg_write(sc, QUART_LCR, QUART_LCR_EXTEN);        /* enable extended registers */
+            com_reg_write(sc, QUART_EFR, QUART_EFR_RTS | QUART_EFR_ENHMODE);
+            com_reg_write(sc, QUART_LCR, QUART_LCR_DLAB);         /* enable divisor latch */
+            com_reg_write(sc, QUART_DLM, com_rate_table[i].dlm);  /* load divisor */
+            com_reg_write(sc, QUART_DLL, com_rate_table[i].dll);
+            com_reg_write(sc, QUART_LCR, 0x03);                   /* XXX always n81 */
+            com_reg_write(sc, QUART_SPR, QUART_CPR);              /* select CPR */
+            com_reg_write(sc, QUART_ICR, com_rate_table[i].cpr);
+            com_reg_write(sc, QUART_SPR, QUART_TCR);              /* select TCR */
+            com_reg_write(sc, QUART_ICR, com_rate_table[i].tcr);
+            com_reg_write(sc, QUART_MCR, QUART_MCR_INTEN | QUART_MCR_PRESCALE);
+            com_reg_write(sc, QUART_IER, QUART_IER_RXRDY);
+            break;
         }
     }
     /* XXX flow */
@@ -269,14 +284,15 @@ com_interrupt(WORD port)
     IOREC *in = &com_sc[port].iorec.in;
 
     /* drain the receive FIFO as best we can */
-    while (quart_read(sc, QUART_LSR) & QUART_LSR_RXRDY) {
-        UBYTE b = quart_read(sc, QUART_RHR);
+    while (com_reg_read(sc, QUART_LSR) & QUART_LSR_RXRDY) {
+        UBYTE b = com_reg_read(sc, QUART_RHR);
         WORD tail = (in->tail + 1) % COM_BUFSIZE;
 
         if (tail == in->head) {
             /* buffer overflow, drop byte */
             /* XXX we could just turn off interrupts here and let the FIFO fill up */
         } else {
+            KDEBUG(("com_interrupt: rx %02x\n", b));
             in->buf[tail] = b;
         }
         in->tail = tail;
@@ -353,7 +369,7 @@ void init_serport(void)
         memcpy(&com_sc[i].iorec, &iorec_init, sizeof(iorec_init));
         com_sc[i].iorec.in.buf = com_sc[i].ibuf;
         com_sc[i].io = (volatile UBYTE *)(QUART_BASE + i * QUART_STRIDE);
-        //com_rsconf(i, DEFAULT_BAUDRATE, 0, 0x88, 0, 0, 0);
+        com_rsconf(i, DEFAULT_BAUDRATE, 0, 0x88, 0, 0, 0);
     }
 
     /* wire up COM0 as the console device */
