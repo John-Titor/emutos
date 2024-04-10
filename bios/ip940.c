@@ -78,7 +78,6 @@ void processor_init(void)
                      "    movec  d0,cacr            \n"
                      : : : "d0", "memory", "cc"
                      );
-
 }
 
 /*
@@ -96,6 +95,8 @@ static void vbl_wrapper(void)
  */
 void machine_init(void)
 {
+    KDEBUG(("CPLD rev 0x%02x\n", CPLD_REVISION));
+
     /* install interrupt handlers */
     VEC_LEVEL4 = vbl_wrapper;
     VEC_LEVEL6 = int_timerc;
@@ -422,8 +423,8 @@ void init_serport(void)
     /*
      * Minimal reimplementation of init_bconmap.
      *
-     * It seems attractive to start with a static mapping table, but the Bconmap
-     * implementation assumes that the table can be written.
+     * It seems attractive to start with a ROM'ed mapping table, but the
+     * Bconmap implementation assumes that the 'old' table can be written.
      */
     memcpy(&maptable, &maptab_init, sizeof(maptab_init));
     bconmap_root.maptab = maptable;

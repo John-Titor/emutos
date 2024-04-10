@@ -72,8 +72,8 @@ TSYM start
     move.l  #vectors,%d0
     movec   %d0,%vbr
 
-    /* set up transparent translation registers for I/O region, supervisor mode only */
-    move.l  #0x0200a060,%d0         /* 0x02xx_xxxx uncacheable, serialized */
+    /* set up transparent translation registers for I/O region */
+    move.l  #0x0200a040,%d0         /* 0x02xx_xxxx uncacheable, serialized */
     movec   %d0,%dtt0
     move.q  #0,%d0
     movec   %d0,%dtt1
