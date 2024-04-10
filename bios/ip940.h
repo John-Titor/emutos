@@ -12,6 +12,7 @@
 
 #define TIMER_STOP          *(volatile UBYTE *)0x0210003b  // any access stops CPLD timers
 #define TIMER_START         *(volatile UBYTE *)0x0210003f  // any access starts CPLD timers
+#define CPLD_REVISION		*(volatile UBYTE *)0x021000ff
 
 #define QUART_BASE      	0x02110003L
 #define QUART_STRIDE    	(8 << 2)

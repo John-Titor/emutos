@@ -235,22 +235,22 @@ struct IDE
 
 struct IDE
 {
-    UWORD filler00;
+    UBYTE filler00[2];
     UWORD data;
     UBYTE filler01[3];
-    UBYTE features; /* Read: error */
+    UBYTE features;         /* Read: error */
     UBYTE filler02[3];
     UBYTE sector_count;
     UBYTE filler03[3];
-    UBYTE sector_number;
+    UBYTE sector_number;    /* LBA0-7 */
     UBYTE filler04[3];
-    UBYTE cylinder_low;
+    UBYTE cylinder_low;     /* LBA8-15 */
     UBYTE filler05[3];
-    UBYTE cylinder_high;
+    UBYTE cylinder_high;    /* LBA16-23 */
     UBYTE filler06[3];
-    UBYTE head;
+    UBYTE head;             /* LBA24-27, LBA enable */
     UBYTE filler07[3];
-    UBYTE command; /* Read: status */
+    UBYTE command;          /* Read: status */
     /*
      * No access to the alternate status and control registers. No interrupts, so that's OK.
      */
@@ -655,6 +655,8 @@ BOOL detect_ide(void)
     }
 #elif defined(MACHINE_PT68K5)
     has_ide = 0x03;
+#elif defined(MACHINE_IP940)
+    has_ide = 0x01;
 #else
     has_ide = 0x00;
 #endif
