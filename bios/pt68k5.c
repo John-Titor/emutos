@@ -442,4 +442,11 @@ void screen_init_mode(void)
     defshiftmod = ST_HIGH;
 }
 
+void screen_get_current_mode_info(UWORD *planes, UWORD *hz_rez, UWORD *vt_rez)
+{
+    *planes = 1;
+    *hz_rez = 640;
+    *vt_rez = 480;
+}
+
 #endif /* MACHINE_PT68K5 */
