@@ -818,10 +818,6 @@ void screen_get_current_mode_info(UWORD *planes, UWORD *hz_rez, UWORD *vt_rez)
     *planes = 1;
     *hz_rez = 720;
     *vt_rez = 364;
-#elif defined(MACHINE_PT68K5)
-    *planes = 1;
-    *hz_rez = 640;
-    *vt_rez = 480;
 #else
     atari_get_current_mode_info(planes, hz_rez, vt_rez);
 #endif
