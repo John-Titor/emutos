@@ -61,8 +61,6 @@ help:
 	@echo "amigaflop $(EMUTOS_ADF), EmuTOS RAM as Amiga boot floppy"
 	@echo "amigaflopvampire $(EMUTOS_VAMPIRE_ADF), EmuTOS RAM as Amiga boot floppy optimized for Vampire V2"
 	@echo "lisaflop $(EMUTOS_DC42), EmuTOS RAM as Apple Lisa boot floppy"
-	@echo "pt68k5 $(EMUTOS_PT68K5), EmuTOS for PT68K5"
-	@echo "ip940 $(EMUTOS_IP940), EmuTOS for IP940 ROM"
 	@echo "m548x-dbug $(SREC_M548X_DBUG), EmuTOS-RAM for dBUG on ColdFire Evaluation Boards"
 	@echo "m548x-bas  $(SREC_M548X_BAS), EmuTOS for BaS_gcc on ColdFire Evaluation Boards"
 	@echo "m548x-prg  emutos.prg, a RAM tos for ColdFire Evaluation Boards with BaS_gcc"
@@ -70,7 +68,6 @@ help:
 	@echo "prg256  $(EMU256_PRG), a RAM tos for ST/STe systems"
 	@echo "flop    $(EMUTOS_ST), a bootable floppy with RAM tos"
 	@echo "pak3    $(ROM_PAK3), suitable for PAK/3 systems"
-	@echo "qemu    $(ROM_QEMU), suitable for qemu-system-m68k -machine type=atarist"
 	@echo "cart    $(ROM_CARTRIDGE), EmuTOS as a diagnostic cartridge"
 	@echo "clean   remove temporary files"
 	@echo "Use '$(MAKE) help-develop' for development-oriented targets"
@@ -308,9 +305,6 @@ bios_src +=  memory.S processor.S vectors.S aciavecs.S bios.c xbios.c acsi.c \
              pmmu030.c 68040_pmmu.S \
              amiga.c amiga2.S spi_vamp.c \
              lisa.c lisa2.S \
-             pt68k5.c \
-             ip940.c \
-             qemu.c qemu_pci.c qemu_video.c qemu2.S \
              delay.c delayasm.S sd.c memory2.c bootparams.c scsi.c nova.c \
              dsp.c dsp2.S \
              scsidriv.c
@@ -618,71 +612,6 @@ aranym:
 	@printf "$(LOCALCONFINFO)"
 
 #
-# qemu Image
-#
-
-ROM_QEMU = emutos-qemu.img
-
-.PHONY: qemu
-NODEP += qemu
-qemu: override DEF += -DMACHINE_QEMU
-qemu: CPUFLAGS = -m68040
-qemu: ROMSIZE = 1024
-qemu: ROM_PADDED = $(ROM_QEMU)
-qemu: WITH_AES = 1
-qemu:
-	@echo "# Building QEMU EmuTOS into $(ROM_PADDED)"
-	$(MAKE) CPUFLAGS='$(CPUFLAGS)' OPTFLAGS='$(OPTFLAGS)' DEF='$(DEF)' WITH_AES=$(WITH_AES) ROMSIZE=$(ROMSIZE) ROM_PADDED=$(ROM_PADDED) $(ROM_PADDED)
-
-# override these to suit local paths
-QEMU_DIR ?= ../../../_Emulators/qemu/qemu
-QEMU ?= ../../../_Emulators/qemu/qemu/build/qemu-system-m68k
-QEMU_DISK ?= ../disk.bin
-
-# basic configuration
-QEMU_MEM_SIZE = 64M
-QEMU_OPTS =
-QEMU_OPTS += -kernel $(ROM_QEMU)
-QEMU_OPTS += -L $(QEMU_DIR)/pc-bios
-QEMU_OPTS += -m $(QEMU_MEM_SIZE)
-QEMU_OPTS += -drive file=$(QEMU_DISK),if=ide,format=raw
-
-# the cocoa display has issues, so prefer SDL
-QEMU_OPTS += -display sdl
-#QEMU_OPTS += -display cocoa,full-screen=off,zoom-to-fit=off
-
-# select the memory-backend options to have emulator memory mapped / save to file
-QEMU_OPTS += -machine type=atarist
-QEMU_MEM = /tmp/atari.mem
-#QEMU_OPTS += -machine type=atarist,memory-backend=virt.ram
-#QEMU_OPTS += -object memory-backend-file,size=$(QEMU_MEM_SIZE),id=virt.ram,mem-path=$(QEMU_MEM),share=on,prealloc=on
-
-# serial options
-QEMU_OPTS += -serial mon:stdio
-#QEMU_OPTS += -monitor stdio
-
-# optional devices
-QEMU_OPTS += -device cirrus-vga,romfile=vgabios-cirrus.bin
-#QEMU_OPTS += -device usb-ehci
-#QEMU_OPTS += -device pci-serial-4x
-#QEMU_OPTS += -device rtl8139
-#QEMU_OPTS += -device sdhci-pci
-
-# trace single instructions - huge logfiles
-#QEMU_OPTS += -accel tcg,one-insn-per-tb=on,thread=single -d exec,cpu,in_asm -D /tmp/qemu.log
-#QEMU_OPTS += -nographic
-#QEMU_OPTS += -d trace:pci_cfg_'*' -D /tmp/qemu.log
-
-# load image and set explicit entrypoint
-#QEMU_OPTS += -device loader,file=$(ROM_QEMU),addr=0x00e00000,force-raw=on
-#QEMU_OPTS += -device loader,addr=0x00e00000,cpu-num=0
-
-qemu-run: qemu
-qemu-run:
-	rm -f $(QEMU_MEM)
-	$(QEMU) $(QEMU_OPTS)
-
-#
 # Diagnostic Cartridge Image
 #
 
@@ -979,64 +908,6 @@ lisaboot.img: obj/lisaboot.o obj/lisautil.o obj/bootram.o
 	$(LD) $+ $(PCREL_LDFLAGS) -o $@
 
 obj/lisaboot.o: obj/ramtos.h
-
-#
-# pt68k5
-#
-
-EMUTOS_PT68K5 = emutosk5.rom
-PT68K5_DEFS =
-TOCLEAN += $(EMUTOS_PT68K5)
-
-.PHONY: pt68k5
-NODEP += pt68k5
-pt68k5: UNIQUE = $(COUNTRY)
-pt68k5: OPTFLAGS = $(SMALL_OPTFLAGS)
-pt68k5: CPUFLAGS = -m68020
-pt68k5: override DEF += -DTARGET_PT68K5 $(PT68K5_DEFS)
-pt68k5: WITH_AES=1
-pt68k5:
-	$(MAKE) CPUFLAGS='$(CPUFLAGS)' DEF='$(DEF)' OPTFLAGS='$(OPTFLAGS)' WITH_AES=$(WITH_AES) UNIQUE=$(UNIQUE) EMUTOS_PT68K5=$(EMUTOS_PT68K5) $(EMUTOS_PT68K5)
-	@printf "$(LOCALCONFINFO)"
-
-$(EMUTOS_PT68K5): emutos.img pt68k5boot.img pt68k5_installboot
-	$(OBJCOPY) -I binary -O binary emutos.img $@
-
-pt68k5boot.img: obj/pt68k5boot.o obj/pt68k5boot2.o obj/doprintf.o
-	$(LD) $+ -Wl,--oformat=binary,-Ttext=0x00200000,--entry=0x00200000 -o $@
-
-obj/pt68k5boot.o: obj/ramtos.h
-
-TOCLEAN += pt68k5_installboot
-NODEP += pt68k5_installboot
-pt68k5_installboot: tools/pt68k5_installboot.c
-	$(NATIVECC) $< -o $@
-
-#
-# ip940
-#
-EMUTOS_IP940 = emutos940.s19
-EMUTOS_IP940_ELF = emutos940.elf
-IP940_DEFS =
-TOCLEAN += $(EMUTOS_IP940) $(EMUTOS_IP490_ELF)
-
-.PHONY: ip940
-NODEP += ip940
-ip940: UNIQUE = $(COUNTRY)
-ip940: CPUFLAGS = -m68040
-ip940: override DEF += -DTARGET_IP940 $(IP940_DEFS)
-ip940: WITH_AES = 0
-ip940:
-	$(MAKE) CPUFLAGS='$(CPUFLAGS)' DEF='$(DEF)' OPTFLAGS='$(OPTFLAGS)' WITH_AES=$(WITH_AES) UNIQUE=$(UNIQUE) EMUTOS_IP940=$(EMUTOS_IP940) $(EMUTOS_IP940)
-	@printf "$(LOCALCONFINFO)"
-
-obj/ip940_loader.o: emutos.img
-
-$(EMUTOS_IP940_ELF): obj/ip940_loader.o
-	$(LD) $+ -Wl,-Ttext=0x4000 -e start -o $@
-
-$(EMUTOS_IP940): $(EMUTOS_IP940_ELF)
-	$(OBJCOPY) -O srec --srec-forceS3 $< $@
 
 #
 # localisation support: create bios/ctables.h include/i18nconf.h
