@@ -244,27 +244,6 @@ release-amiga-floppy:
 	cd $(RELEASE_DIR) && zip -9 -r $(RELEASE_AMIGA_FLOPPY).zip $(RELEASE_AMIGA_FLOPPY)
 	rm -r $(RELEASE_DIR)/$(RELEASE_AMIGA_FLOPPY)
 
-.PHONY: release-pt68k5
-NODEP += release-pt68k5
-RELEASE_PT68K5 = emutos-pt68k5-$(VERSION)
-release-pt68k5:
-	$(MAKE) clean
-	$(MAKE) pt68k5
-	mkdir -p $(RELEASE_DIR)/$(RELEASE_PT68K5)
-	cp $(EMUTOS_PT68K5) $(RELEASE_DIR)/$(RELEASE_PT68K5)
-	cp desk/icon.def $(RELEASE_DIR)/$(RELEASE_PT68K5)/emuicon.def
-	cp desk/icon.rsc $(RELEASE_DIR)/$(RELEASE_PT68K5)/emuicon.rsc
-	cat doc/readme-pt68k5.txt readme.txt >$(RELEASE_DIR)/$(RELEASE_PT68K5)/readme.txt
-	mkdir -p $(RELEASE_DIR)/$(RELEASE_PT68K5)/doc
-	cp $(DOCFILES) $(RELEASE_DIR)/$(RELEASE_PT68K5)/doc
-	mkdir -p $(RELEASE_DIR)/$(RELEASE_PT68K5)/extras
-	cp $(EXTRAFILES) $(RELEASE_DIR)/$(RELEASE_PT68K5)/extras
-	cp aes/mform.def $(RELEASE_DIR)/$(RELEASE_PT68K5)/extras/emucurs.def
-	cp aes/mform.rsc $(RELEASE_DIR)/$(RELEASE_PT68K5)/extras/emucurs.rsc
-	find $(RELEASE_DIR)/$(RELEASE_PT68K5) -name '*.txt' -exec unix2dos '{}' ';'
-	cd $(RELEASE_DIR) && zip -9 -r $(RELEASE_PT68K5).zip $(RELEASE_PT68K5)
-	rm -r $(RELEASE_DIR)/$(RELEASE_PT68K5)
-
 .PHONY: release-m548x-dbug
 NODEP += release-m548x-dbug
 RELEASE_M548X_DBUG = emutos-m548x-dbug-$(VERSION)
