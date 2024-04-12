@@ -21,8 +21,11 @@
 #include "emutos.h"
 #ifdef MACHINE_IP940
 #include "asm.h"
+#include "blkdev.h"
 #include "clock.h"
 #include "delay.h"
+#include "disk.h"
+#include "gemerror.h"
 #include "ip940.h"
 #include "ikbd.h"
 #include "machine.h"
@@ -122,6 +125,136 @@ machine_name(void)
 {
     return "IP940";
 }
+
+/********************************************************************
+ * ROMdisk
+ *
+ * The ROM'ed pagetable places an indirect PTE in the last page of
+ * the 256K ROM mapping
+ */
+#if CONF_WITH_ROMDISK
+
+#define PAGE_SIZE   0x2000UL
+
+/*
+ * Remap the ROM reader window to point to the page containing the
+ * requested ROMdisk sector.
+ */
+static const UBYTE *
+rd_set_window(LONG sector)
+{
+    /* we use the indirect PTE in the vector 22 slot to map the ROM window */
+    static ULONG * const pte = (ULONG *)0x58UL;
+    static const ULONG pte_phys = RAM_PHYS + 0x58UL;
+
+    /* this PTE maps the last page of the 512K ROM aperture */
+    static const UBYTE * const window = (const UBYTE *)(0x00e80000UL - PAGE_SIZE);
+
+    static ULONG current_mapping;
+    ULONG target_offset = sector * SECTOR_SIZE;
+    ULONG target_mapping = (ROMDISK_PHYS + target_offset) & ~(PAGE_SIZE - 1);
+
+    if (current_mapping != target_mapping) {
+        ULONG mmusr;
+        /*
+         * Update the window PTE to the target page;
+         * supervisor, uncached, write-protected, used/modified, resident.
+         * Note that this descriptor is in cached / writeback space, which
+         * the CPU really doesn't like (all RAM is cached/writeback), so we
+         * make sure to push the line out immediately.
+         *
+         * We have secret knowledge here:
+         *  - Vectors are always at the bottom of physical RAM, whose physical
+         *    address we should not really know (we could get it by translating
+         *    %vbr, but we cheat because it will never change).
+         *  - The PTEs for the last three pages of ROM space indirect to the slots
+         *    for exceptions 20/21/22 (this is a contract with ip940_loader.S).
+         */
+        *pte = target_mapping | 0xff;
+        KDEBUG(("romdisk: map sector 0x%lx, window %p->0x%lx, pte 0x%08lx\n", sector, window, target_mapping, *pte));
+
+        __asm__ volatile("    cpushl %%dc,%0@   \n" /* clean the PTE to RAM and invalidate the cache line */
+                         "    pflush %1@        \n" /* clean any old translation for the window from the ATC */
+                         :
+                         : "a"(pte_phys), "a"(window)
+                         : "memory");
+        current_mapping = target_mapping;
+
+        __asm__ volatile("    ptestr %1@        \n"
+                         "    movec mmusr,%0    \n"
+                         : "=d"(mmusr)
+                         : "a"(window)
+                         : "memory");
+        KDEBUG(("romdisk: mmusr 0x%08lx\n",mmusr));
+    }
+    return window + (target_offset % PAGE_SIZE);
+}
+
+void
+romdisk_init(WORD dev, LONG *devices_available)
+{
+    UNIT * const u = &units[dev];
+    const UBYTE * const secptr = rd_set_window(0);
+
+    /* look for FAT bootsector signature */
+    if ((secptr[0x1fe] != 0x55) || (secptr[0x1ff] != 0xaa)) {
+        KDEBUG(("romdisk: unexpected bootsector signature %02x,%02x\n", secptr[0x1fe], secptr[0x1ff]));
+        return;
+    }
+    /* try adding this as though it were a partition - type must be something recognized */
+    if (add_partition(dev, devices_available, "GEM", 0, ROMDISK_SIZE / SECTOR_SIZE)) {
+        KDEBUG(("romdisk: add_partition failed\n"));
+        return;
+    }
+
+    KDEBUG(("romdisk: attached unit %d\n", dev));
+
+    u->valid = 1;
+    u->size = ROMDISK_SIZE / SECTOR_SIZE;
+    u->psshift = get_shift(SECTOR_SIZE);
+    u->last_access = 0;
+    u->status = 0;
+    u->features = 0;
+}
+
+LONG
+romdisk_ioctl(WORD dev, UWORD ctrl, void *arg)
+{
+    switch (ctrl) {
+    case GET_DISKINFO:
+        {
+            ULONG *info = (ULONG *)arg;
+            info[0] = ROMDISK_SIZE / SECTOR_SIZE;
+            info[1] = SECTOR_SIZE;
+            return E_OK;
+        }
+
+    case GET_DISKNAME:
+        strcpy(arg, "romdisk");
+        return E_OK;
+
+    case GET_MEDIACHANGE:
+        return MEDIANOCHANGE;
+    }
+    return ERR;
+}
+
+LONG
+romdisk_rw(WORD rw, LONG sector, WORD count, UBYTE *buf, WORD dev)
+{
+    if ((rw & RW_RW) != RW_READ) {
+        return EWRPRO;
+    }
+
+    while (count--) {
+        const UBYTE *window = rd_set_window(sector);
+        memcpy(buf, window, SECTOR_SIZE);
+        sector++;
+        buf += SECTOR_SIZE;
+    }
+    return E_OK;
+}
+#endif /* CONF_WITH_ROMDISK */
 
 /********************************************************************
  * Serial ports on the OX16C954.
