@@ -2,8 +2,6 @@
 # Non-mainline ports.
 #
 
-$(info local)
-
 help: help-local
 .PHONY: help-local
 NODEP += help-local
@@ -120,7 +118,7 @@ $(EMUTOS_IP940_ELF): obj/ip940_loader.o
 	$(LD) $+ -Wl,-Ttext=0x4000 -e start -o $@
 
 $(EMUTOS_IP940): $(EMUTOS_IP940_ELF)
-	$(OBJCOPY) -O srec --srec-forceS3 $< $@
+	$(OBJCOPY) -O srec --srec-forceS3 --srec-len 100 $< $@
 
 .PHONY: release-ip940
 NODEP += release-ip940
