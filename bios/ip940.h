@@ -10,11 +10,15 @@
 
 #ifdef MACHINE_IP940
 
-#define TIMER_STOP          *(volatile UBYTE *)0x0210003b  // any access stops CPLD timers
-#define TIMER_START         *(volatile UBYTE *)0x0210003f  // any access starts CPLD timers
-#define CPLD_REVISION		*(volatile UBYTE *)0x021000ff
+#define RAM_PHYS			0x01000000UL
+#define ROMDISK_PHYS		0x00080000UL
+#define ROMDISK_SIZE		0x00180000UL
 
-#define QUART_BASE      	0x02110003L
+#define TIMER_STOP          *(volatile UBYTE *)0x0210003bUL	// any access stops CPLD timers
+#define TIMER_START         *(volatile UBYTE *)0x0210003fUL	// any access starts CPLD timers
+#define CPLD_REVISION		*(volatile UBYTE *)0x021000ffUL
+
+#define QUART_BASE      	0x02110003UL
 #define QUART_STRIDE    	(8 << 2)
 #define QUART_THR       	(0<<2)
 #define QUART_RHR       	(0<<2)

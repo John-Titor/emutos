@@ -32,3 +32,4 @@
 /pt68k5_installboot
 *.elf
 /*.sublime-workspace
+/romdisk.*

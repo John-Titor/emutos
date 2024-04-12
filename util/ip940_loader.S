@@ -62,7 +62,7 @@
 DSYM vectors
     .dc.l   0x01800000
     .dc.l   start
-    .dcb.l  9,exception
+    .dcb.l  3,exception             /* access, address, illegal */
 
 /* entrypoint from bootloader */
     .globl  start
@@ -178,27 +178,29 @@ DSYM err_exception1
 DSYM err_exception2
     .asciz " @ "
 DSYM msg_boot1
-    .asciz "EmuTOS MMU setup..."
+    .asciz "MMU setup..."
 DSYM msg_boot2
     .asciz "done.\r\n"
 DSYM msg_newline
     .asciz "\r\n"
 
     .align 4
-DSYM end               /* nothing after this available with MMU on */
+DSYM end                /* nothing after this available with MMU on */
+    .dc.l   0           /* keep end and rom_page_tables distinct */
 
 /*
  * Pagetables.
  *
  * Since memory layout is fixed, we can compute these statically and leave
- * them in the ROM. If performance is terrible, they could be cached in RAM.
+ * them in the ROM. If performance is terrible, they could be moved to RAM.
  * To minimise pagetable size and make the most of the ATC, we use 8K pages.
  *
  * We need:
  *  - a complete root table; 128 entries, 512B
  *  - one pointer table mapping 0x0000_0000-0x01ff_ffff, 128 entries, 512B
  *  - 48 page tables mapping 12M of RAM from 0x0100_0000 to 0x0000_0000-0x00bd_ffff, 48 x 32 entries, 6144B
- *  - one page table mapping 256K of ROM from 0x000c_0000 to 0x00e0_0000-0x00e1_ffff, 32 entries, 128B
+ *  - two page tables mapping 488K of ROM from 0x0000_6000 to 0x00e0_0000, 61 entries, 244B
+ *  - three indirect entries at the end of ROM space mapping any 8k to 0x00e7_[a,c,e]000, 3 entries, 12B
  *
  * The root and pointer tables must be 512B aligned. Page tables must be 128B
  * aligned. Smaller tables are placed first to maximise space for the loader
@@ -208,45 +210,59 @@ DSYM end               /* nothing after this available with MMU on */
  * entries marked modified to prevent the MMU from trying to update these bits
  * (040 UM fig 3-10).
  *
+ * The indirect entry at the end of the ROM aperture can be used as a window to
+ * read/write any physical range. This is intended as a cheap way of reading any
+ * part of the entire ROM without having to spend more memory on pagetables. The
+ * indirection points to RAM_PHYS+0x50; assuming vectors are based at RAM_PHYS
+ * this is the vector address for the reserved exception 20. Since all of RAM is
+ * mapped writeback-cachable, we attempt to placate the 040 table walker by
+ * having this PTE in a location where it is very unlikely to ever be resident
+ * in the cache for any reason.
+ *
  * note: don't use '|' for bitwise-or, as it starts a comment; use + as no fields
  *       should overlap.
  */
 
-    .equ    INVALID,    (0<<0)
-    .equ    RESIDENT,   (3<<0)
-    .equ    READONLY,   (1<<2)
-    .equ    USED,       (1<<3)
-    .equ    MODIFIED,   (1<<4)
-    .equ    CACHE_WT,   (0<<5)
-    .equ    CACHE_CB,   (1<<5)
-    .equ    SERIALIZED, (2<<5)
-    .equ    UNCACHED,   (3<<5)
-    .equ    SUPERVISOR, (1<<7)
+    .equ    PDT_INVALID,    (0<<0)
+    .equ    PDT_INDIRECT,   (2<<0)
+    .equ    PDT_RESIDENT,   (3<<0)
+    .equ    W_READONLY,     (1<<2)
+    .equ    U_USED,         (1<<3)
+    .equ    M_MODIFIED,     (1<<4)
+    .equ    CM_WRITETHROUGH,(0<<5)
+    .equ    CM_COPYBACK,    (1<<5)
+    .equ    CM_SERIALIZED,  (2<<5)
+    .equ    CM_UNCACHED,    (3<<5)
+    .equ    S_SUPERVISOR,   (1<<7)
 
 /* page table mapping RAM */
 .macro mk_ram_page_table    table_index, pgi=0
-    .dc.l   RAM_PHYS + (\table_index << 18) + (\pgi << 13) + CACHE_CB + MODIFIED + USED + RESIDENT
+    .dc.l   RAM_PHYS + (\table_index << 18) + (\pgi << 13) + CM_COPYBACK + M_MODIFIED + U_USED + PDT_RESIDENT
 .if 31 - \pgi
     mk_ram_page_table \table_index, (\pgi + 1)
 .endif
 .endm
 
-/* page table table mapping ROM */
-.macro mk_rom_page_table    table_index, pgi=0
-    .dc.l   ROM_PHYS + (\table_index << 18) + (\pgi << 13) + CACHE_WT + USED + READONLY + RESIDENT
-.if 31 - \pgi
-    mk_rom_page_table \table_index, (\pgi + 1)
+/* page table table mapping ROM, note option for reduced PTE count */
+.macro mk_rom_page_table    table_index, pgi=0, count=31
+    .dc.l   ROM_PHYS + (\table_index << 18) + (\pgi << 13) + CM_WRITETHROUGH + U_USED + W_READONLY + PDT_RESIDENT
+.if \count - \pgi
+    mk_rom_page_table \table_index, (\pgi + 1), \count
 .endif
 .endm
 
 /* pointer table entry referencing a page table */
 .macro mk_pointer_entry     page_base=ram_page_tables, page_index=0
-    .dc.l   \page_base + (\page_index << 7) + USED + RESIDENT
+    .dc.l   \page_base + (\page_index << 7) + U_USED + PDT_RESIDENT
 .endm
 
     .align 128
 DSYM rom_page_tables
     mk_rom_page_table   table_index=0
+    mk_rom_page_table   table_index=1,count=28
+    .dc.l   RAM_PHYS + 0x50 + PDT_INDIRECT
+    .dc.l   RAM_PHYS + 0x54 + PDT_INDIRECT
+    .dc.l   RAM_PHYS + 0x58 + PDT_INDIRECT
 
     .align 128
 DSYM ram_page_tables
@@ -350,16 +366,17 @@ DSYM pointer_table
     mk_pointer_entry    page_index=45
     mk_pointer_entry    page_index=46
     mk_pointer_entry    page_index=47
-    .dcb.l          8,INVALID
+    .dcb.l          8,PDT_INVALID
     /* VA = 0x00e0_0000 */
-    mk_pointer_entry    page_base=rom_page_tables
-    .dcb.l          71,INVALID
+    mk_pointer_entry    page_base=rom_page_tables,page_index=0
+    mk_pointer_entry    page_base=rom_page_tables,page_index=1
+    .dcb.l          70,PDT_INVALID
 
     .align 512
 DSYM root_table
     /* VA = 0x0000_0000 */
-    dc.l        pointer_table + USED + RESIDENT
-    .dcb.l      127,INVALID
+    dc.l        pointer_table + U_USED + PDT_RESIDENT
+    .dcb.l      127,PDT_INVALID
 
 /* ensure that we don't spill out of the loader's allocation */
     .org    LOADER_SIZE
