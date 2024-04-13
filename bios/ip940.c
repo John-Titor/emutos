@@ -155,7 +155,6 @@ rd_set_window(LONG sector)
     ULONG target_mapping = (ROMDISK_PHYS + target_offset) & ~(PAGE_SIZE - 1);
 
     if (current_mapping != target_mapping) {
-        ULONG mmusr;
         /*
          * Update the window PTE to the target page;
          * supervisor, uncached, write-protected, used/modified, resident.
@@ -174,18 +173,13 @@ rd_set_window(LONG sector)
         KDEBUG(("romdisk: map sector 0x%lx, window %p->0x%lx, pte 0x%08lx\n", sector, window, target_mapping, *pte));
 
         __asm__ volatile("    cpushl %%dc,%0@   \n" /* clean the PTE to RAM and invalidate the cache line */
+                         "    moveq  #5,d0      \n" /* select supervisor translations to clear */
+                         "    movec  d0,dfc     \n"
                          "    pflush %1@        \n" /* clean any old translation for the window from the ATC */
                          :
                          : "a"(pte_phys), "a"(window)
-                         : "memory");
+                         : "d0", "memory");
         current_mapping = target_mapping;
-
-        __asm__ volatile("    ptestr %1@        \n"
-                         "    movec mmusr,%0    \n"
-                         : "=d"(mmusr)
-                         : "a"(window)
-                         : "memory");
-        KDEBUG(("romdisk: mmusr 0x%08lx\n",mmusr));
     }
     return window + (target_offset % PAGE_SIZE);
 }
