@@ -200,6 +200,7 @@ DSYM end                /* nothing after this available with MMU on */
  *  - one pointer table mapping 0x0000_0000-0x01ff_ffff, 128 entries, 512B
  *  - 48 page tables mapping 12M of RAM from 0x0100_0000 to 0x0000_0000-0x00bd_ffff, 48 x 32 entries, 6144B
  *  - two page tables mapping 488K of ROM from 0x0000_6000 to 0x00e0_0000, 61 entries, 244B
+ *    (bootloader and this loader consume 3 pages of the first 512K of the ROM)
  *  - three indirect entries at the end of ROM space mapping any 8k to 0x00e7_[a,c,e]000, 3 entries, 12B
  *
  * The root and pointer tables must be 512B aligned. Page tables must be 128B
@@ -210,13 +211,13 @@ DSYM end                /* nothing after this available with MMU on */
  * entries marked modified to prevent the MMU from trying to update these bits
  * (040 UM fig 3-10).
  *
- * The indirect entry at the end of the ROM aperture can be used as a window to
+ * The indirect entries at the end of the ROM aperture can be used as a window to
  * read/write any physical range. This is intended as a cheap way of reading any
  * part of the entire ROM without having to spend more memory on pagetables. The
- * indirection points to RAM_PHYS+0x50; assuming vectors are based at RAM_PHYS
- * this is the vector address for the reserved exception 20. Since all of RAM is
- * mapped writeback-cachable, we attempt to placate the 040 table walker by
- * having this PTE in a location where it is very unlikely to ever be resident
+ * indirections point to RAM_PHYS+0x5x; assuming vectors are based at RAM_PHYS
+ * this is the vector address for the reserved exceptions 20-22. Since all of RAM
+ * is mapped writeback-cachable, we attempt to placate the 040 table walker by
+ * having these PTEs in a location where they are very unlikely to ever be resident
  * in the cache for any reason.
  *
  * note: don't use '|' for bitwise-or, as it starts a comment; use + as no fields

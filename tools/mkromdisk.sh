@@ -62,10 +62,13 @@ fi
 #
 # create the image and copy files
 #
+# preemptively nuke .DS_Store turds from the source before copying
+#
 disk_file=romdisk.${machine}
 rm -f ${disk_file}
 export MTOOLS_NO_VFAT=1
 mformat -i ${disk_file} -r 2 -C -T ${disk_nsectors}
+find ${source_dir} -name .DS_Store -delete
 mcopy -i ${disk_file} -bsvQ ${source_dir}/* ::/
 
 #
@@ -74,7 +77,7 @@ mcopy -i ${disk_file} -bsvQ ${source_dir}/* ::/
 case ${output_fmt} in
     srec)
         srec_temp=`mktemp mkromdisk.XXXX`
-        m68k-elf-objcopy -I binary -O srec --adjust-vma ${srec_address} --srec-forceS3 ${disk_file} ${srec_temp}
+        m68k-elf-objcopy -I binary -O srec --adjust-vma ${srec_address} --srec-forceS3 --srec-len 100 ${disk_file} ${srec_temp}
         mv ${srec_temp} ${disk_file}
         ;;
     binary)
