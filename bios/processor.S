@@ -421,6 +421,7 @@ ii_not30:
 
 ii_inval:
         nop
+        CPUSHA_DC               // must clean copyback d-cache
         CINVA_IC                // invalidate the instruction cache
         nop
 ii_done:
@@ -449,9 +450,9 @@ _flush_data_cache:
 // 68030 data caches are always write-through, so no action is necessary
 //
 // 68040/68060 data caches are either write-through or copyback, depending
-// on how the system is set up.  at this time, the data TTRs are set up so
-// that the cache is write-through, so no action is necessary here either.
+// on how the system is set up, so we need to flush here.
 //
+        CPUSHA_DC
 #endif
         rts
 #endif
