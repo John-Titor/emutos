@@ -948,9 +948,10 @@ pi_not30:
         cmpi.b  #60,_mcpu+3
         jne     pi_next
 
-        // on 68040 and 68060, invalidate the line holding the opcode only
+        // on 68040 and 68060, push and invalidate the line holding the opcode only
 pi_inval:
         nop
+        CPUSHL_DC_A0                    // cpushl  dc,(a0)
         CINVL_IC_A0                     // cinvl   ic,(a0)
         nop
 
