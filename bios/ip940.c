@@ -112,7 +112,8 @@ void machine_init(void)
 }
 
 /*
- * Override detect_32bit_address_bus, as it will hang.
+ * Override detect_32bit_address_bus, as it will hang and we already
+ * know the answer.
  */
 BOOL
 detect_32bit_address_bus(void)
@@ -120,6 +121,9 @@ detect_32bit_address_bus(void)
     return 1;
 }
 
+/*
+ * Override machine_name and return something appropriate.
+ */
 const char *
 machine_name(void)
 {
@@ -129,8 +133,9 @@ machine_name(void)
 /********************************************************************
  * ROMdisk
  *
- * The ROM'ed pagetable places an indirect PTE in the last page of
- * the 256K ROM mapping
+ * The ROM'ed pagetable places indirect PTEs in the last three pages
+ * of the 512k ROM aperture; we use one of them as a window into the
+ * remainder of the ROM, where a filesystem can be stored.
  */
 #if CONF_WITH_ROMDISK
 
@@ -173,8 +178,8 @@ rd_set_window(LONG sector)
         KDEBUG(("romdisk: map sector 0x%lx, window %p->0x%lx, pte 0x%08lx\n", sector, window, target_mapping, *pte));
 
         __asm__ volatile("    cpushl %%dc,%0@   \n" /* clean the PTE to RAM and invalidate the cache line */
-                         "    moveq  #5,d0      \n" /* select supervisor translations to clear */
-                         "    movec  d0,dfc     \n"
+                         "    moveq  #5,d0      \n" /* we want to clear supervisor translations */
+                         "    movec  d0,dfc     \n" /* so set the destination function code to suit */
                          "    pflush %1@        \n" /* clean any old translation for the window from the ATC */
                          :
                          : "a"(pte_phys), "a"(window)
@@ -195,6 +200,7 @@ romdisk_init(WORD dev, LONG *devices_available)
         KDEBUG(("romdisk: unexpected bootsector signature %02x,%02x\n", secptr[0x1fe], secptr[0x1ff]));
         return;
     }
+
     /* try adding this as though it were a partition - type must be something recognized */
     if (add_partition(dev, devices_available, "GEM", 0, ROMDISK_SIZE / SECTOR_SIZE)) {
         KDEBUG(("romdisk: add_partition failed\n"));
