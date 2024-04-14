@@ -184,7 +184,7 @@ DSYM msg_boot2
 DSYM msg_newline
     .asciz "\r\n"
 
-    .align 4
+    .p2align 2
 DSYM end                /* nothing after this available with MMU on */
     .dc.l   0           /* keep end and rom_page_tables distinct */
 
@@ -257,7 +257,7 @@ DSYM end                /* nothing after this available with MMU on */
     .dc.l   \page_base + (\page_index << 7) + U_USED + PDT_RESIDENT
 .endm
 
-    .align 128
+    .p2align 7
 DSYM rom_page_tables
     mk_rom_page_table   table_index=0
     mk_rom_page_table   table_index=1,count=28
@@ -265,7 +265,7 @@ DSYM rom_page_tables
     .dc.l   RAM_PHYS + 0x54 + PDT_INDIRECT
     .dc.l   RAM_PHYS + 0x58 + PDT_INDIRECT
 
-    .align 128
+    .p2align 7
 DSYM ram_page_tables
     mk_ram_page_table   table_index=0
     mk_ram_page_table   table_index=1
@@ -316,7 +316,7 @@ DSYM ram_page_tables
     mk_ram_page_table   table_index=46
     mk_ram_page_table   table_index=47
 
-    .align 512
+    .p2align 9
 DSYM pointer_table
     /* VA = 0x0000_0000 */
     mk_pointer_entry    page_index=0
@@ -373,7 +373,7 @@ DSYM pointer_table
     mk_pointer_entry    page_base=rom_page_tables,page_index=1
     .dcb.l          70,PDT_INVALID
 
-    .align 512
+    .p2align 9
 DSYM root_table
     /* VA = 0x0000_0000 */
     dc.l        pointer_table + U_USED + PDT_RESIDENT
