@@ -156,7 +156,10 @@ LONG kbshift(WORD flag)
 
 /*=== iorec handling (bios) ==============================================*/
 
-static void push_ikbdiorec(ULONG value)
+#if !CONF_SERIAL_CONSOLE
+static
+#endif
+void push_ikbdiorec(ULONG value)
 {
     short tail;
 
