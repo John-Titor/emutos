@@ -120,6 +120,7 @@ void ikbd_writeb(UBYTE b);
 void ikbd_writew(WORD w);
 
 #if CONF_SERIAL_CONSOLE
+void push_ikbdiorec(ULONG value);
 void push_ascii_ikbdiorec(UBYTE ascii);
 #endif
 

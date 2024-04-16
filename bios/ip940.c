@@ -36,6 +36,8 @@
 #include "tosvars.h"
 #include "vectors.h"
 
+static void com_console_tick(void);
+static void com_console_input(UBYTE b);
 
 LONG gettime(void)
 {
@@ -91,6 +93,9 @@ static void vbl_wrapper(void)
 {
     /* returns with RTS for !CONF_WITH_ATARI_VIDEO */
     int_vbl();
+
+    /* poke the serial console input state machine */
+    com_console_tick();
 }
 
 /*
@@ -422,6 +427,8 @@ com_rsconf(WORD port, WORD speed, WORD flow, WORD ucr, WORD rsr, WORD tsr, WORD 
     com_sc_t * const sc = &com_sc[port];
     LONG ret;
 
+    KDEBUG(("rsconf %d\n", port));
+
     /* check for current speed request */
     if (speed == -2) {
         return sc->iorec.baudrate;
@@ -501,8 +508,7 @@ com_interrupt(WORD port)
         in->tail = tail;
 #if CONF_SERIAL_CONSOLE && !CONF_SERIAL_CONSOLE_POLLING_MODE
         if (port == 0) {
-            /* stuff the incoming byte into the keyboard buffer */
-            push_ascii_ikbdiorec(b);
+            com_console_input(b);
         }
 #endif
     }
@@ -514,6 +520,101 @@ com_shared_interrupt(void)
 {
     for (WORD i = 0; i < NUM_COM_PORTS; i++) {
         com_interrupt(i);
+    }
+}
+
+#define ESC_SEQ_LEN_MAX 4
+static UBYTE    esc_seq[ESC_SEQ_LEN_MAX];
+static UWORD    esc_seq_len;
+static UWORD    esc_seq_timer;
+
+static struct scancode_sequence
+{
+    ULONG       scancode;
+    UBYTE       sequence[ESC_SEQ_LEN_MAX];
+} sequence_table[] =
+{
+    { 0x48, { 0x1b, '[', 'A' } },   /* up arrow */
+    { 0x4b, { 0x1b, '[', 'B' } },   /* left arrow */
+    { 0x4d, { 0x1b, '[', 'C' } },   /* right arrow */
+    { 0x50, { 0x1b, '[', 'D' } },   /* down arrow */
+    { 0 }
+};
+
+static void
+com_console_tick(void)
+{
+    WORD    i;
+
+    switch (esc_seq_timer) {
+    case 0:
+        /* no timer, do nothing */
+        break;
+    case 1:
+        /* timer expiring, push timed-out sequence in as ascii */
+        esc_seq_timer = 0;
+        for (i = 0; i < esc_seq_len; i++) {
+            push_ascii_ikbdiorec(esc_seq[i]);
+        }
+        /* FALLTHROUGH */
+    default:
+        /* timer still running */
+        esc_seq_timer--;
+        break;
+    }
+}
+
+static void
+com_console_input(UBYTE b)
+{
+    WORD    i, j;
+
+    /* if not processing a sequence and not the start of a sequence, send as input */
+    if ((esc_seq_len == 0) && (b != 0x1b)) {
+        push_ascii_ikbdiorec(b);
+        return;
+    }
+    esc_seq[esc_seq_len++] = b;
+
+    /* scan for sequence */
+    BOOL candidate = FALSE;
+    const struct scancode_sequence * seq;
+    for (seq = &sequence_table[0]; seq->scancode != 0; seq++) {
+        /* do sequence lengths match? */
+        if (seq->sequence[esc_seq_len] != 0) {
+            /* could still be a candidate */
+            candidate = TRUE;
+            /* no, not this sequence */
+            continue;
+        }
+        /* compare sequences */
+        for (j = 0; j < esc_seq_len; j++) {
+            if (esc_seq[j] != seq->sequence[j]) {
+                break;
+            }
+        }
+        /* match? */
+        if (j == esc_seq_len) {
+            /* yes: push scan code, reset state machine, done */
+            push_ikbdiorec(seq->scancode);
+            esc_seq_len = 0;
+            esc_seq_timer = 0;
+            return;
+        }
+    }
+
+    /* are there still candidates we might match? */
+    if (candidate) {
+        /* set timer to ~100ms and wait */
+        esc_seq_timer = 2;
+    } else {
+        /* not a recognized sequence, just stuff the bytes in */
+        for (i = 0; i < esc_seq_len; i++) {
+            push_ascii_ikbdiorec(esc_seq[i]);
+        }
+        /* ... and reset the state machine */
+        esc_seq_len = 0;
+        esc_seq_timer = 0;
     }
 }
 
