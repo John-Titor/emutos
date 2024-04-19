@@ -524,9 +524,9 @@ static const struct scancode_sequence
 } sequence_table[] =
 {
     { 0x48, { 0x1b, '[', 'A' } },   /* up arrow */
-    { 0x4b, { 0x1b, '[', 'B' } },   /* left arrow */
+    { 0x50, { 0x1b, '[', 'B' } },   /* down arrow */
     { 0x4d, { 0x1b, '[', 'C' } },   /* right arrow */
-    { 0x50, { 0x1b, '[', 'D' } },   /* down arrow */
+    { 0x4b, { 0x1b, '[', 'D' } },   /* left arrow */
     { 0 }
 };
 
@@ -585,7 +585,7 @@ com_console_input(UBYTE b)
         /* match? */
         if (j == esc_seq_len) {
             /* yes: push scan code, reset state machine, done */
-            push_ikbdiorec(seq->scancode);
+            push_ikbdiorec(MAKE_ULONG(seq->scancode, 0));
             esc_seq_len = 0;
             esc_seq_timer = 0;
             return;
@@ -622,7 +622,12 @@ COM_DEFINE_FUNCTIONS(2);
 COM_DEFINE_FUNCTIONS(3);
 
 static const MAPTAB maptab_init[NUM_COM_PORTS] = {
-#define COM_MAPTAB_ENTRY(_x)    { com##_x##_bconstat, com##_x##_bconin, com##_x##_bcostat, com##_x##_bconout, com##_x##_rsconf, &com_sc[_x].iorec }
+#define COM_MAPTAB_ENTRY(_x)    { .Bconstat = com##_x##_bconstat,   \
+                                  .Bconin   = com##_x##_bconin,     \
+                                  .Bcostat  = com##_x##_bcostat,    \
+                                  .Bconout  = com##_x##_bconout,    \
+                                  .Rsconf   = com##_x##_rsconf,     \
+                                  .Iorec    = &com_sc[_x].iorec }
     COM_MAPTAB_ENTRY(0),
     COM_MAPTAB_ENTRY(1),
     COM_MAPTAB_ENTRY(2),
