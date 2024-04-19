@@ -321,53 +321,51 @@ static struct
 
 typedef struct
 {
-    volatile UBYTE *io;
-    UBYTE       acr_shadow;
     WORD        rate_index;
     WORD        flow_code;
     WORD        line_code;
+    UBYTE       acr_shadow;
     EXT_IOREC   iorec;
     UBYTE       ibuf[COM_BUFSIZE];
 } com_sc_t;
 static com_sc_t com_sc[NUM_COM_PORTS];
 
 static void
-com_reg_write(com_sc_t *sc, UBYTE reg, UBYTE value)
+com_reg_write(UWORD port, UBYTE reg, UBYTE value)
 {
-
     if (reg & QUART_INDEXED) {
         const WORD old_sr = set_sr(0x2700);
-        com_reg_write(sc, QUART_SPR, reg & ~QUART_INDEXED);
-        com_reg_write(sc, QUART_ICR, value);
+        com_reg_write(port, QUART_SPR, reg & ~QUART_INDEXED);
+        com_reg_write(port, QUART_ICR, value);
         if (reg == QUART_ACR) {
-            sc->acr_shadow = value;
+            com_sc[port].acr_shadow = value;
         }
         set_sr(old_sr);
     } else {
-        *(sc->io + reg) = value;
+        QUART_REG(port, reg) = value;
     }
 }
 
 static UBYTE
-com_reg_read(com_sc_t *sc, UBYTE reg)
+com_reg_read(UWORD port, UBYTE reg)
 {
     if (reg & QUART_INDEXED) {
         const WORD old_sr = set_sr(0x2700);
         UBYTE value;
 
-        com_reg_write(sc, QUART_ACR, sc->acr_shadow | QUART_ACR_RDEN);
-        com_reg_write(sc, QUART_SPR, reg & ~QUART_INDEXED);
-        value = com_reg_read(sc, QUART_ICR);
-        com_reg_write(sc, QUART_ACR, sc->acr_shadow & ~QUART_ACR_RDEN);
+        com_reg_write(port, QUART_ACR, com_sc[port].acr_shadow | QUART_ACR_RDEN);
+        com_reg_write(port, QUART_SPR, reg & ~QUART_INDEXED);
+        value = com_reg_read(port, QUART_ICR);
+        com_reg_write(port, QUART_ACR, com_sc[port].acr_shadow & ~QUART_ACR_RDEN);
         set_sr(old_sr);
         return value;
     } else {
-        return *(sc->io + reg);
+        return QUART_REG(port, reg);
     }
 }
 
 static LONG
-com_bconstat(WORD port)
+com_bconstat(UWORD port)
 {
     const IOREC * const in = &com_sc[port].iorec.in;
 
@@ -375,7 +373,7 @@ com_bconstat(WORD port)
 }
 
 static LONG
-com_bconin(WORD port)
+com_bconin(UWORD port)
 {
     while (!com_bconstat(port)) {}
 
@@ -393,48 +391,42 @@ com_bconin(WORD port)
 }
 
 static LONG
-com_bcostat(WORD port)
+com_bcostat(UWORD port)
 {
-    com_sc_t * const sc = &com_sc[port];
-
-    return (com_reg_read(sc, QUART_LSR) & QUART_LSR_THRE) ? -1L : 0;
+    return (com_reg_read(port, QUART_LSR) & QUART_LSR_THRE) ? -1L : 0;
 }
 
 static LONG
-com_bconout(WORD port, WORD dev, WORD b)
+com_bconout(UWORD port, WORD b)
 {
-    com_sc_t * const sc = &com_sc[port];
-
     while (!com_bcostat(port)) {
     }
-    com_reg_write(sc, QUART_THR, (UBYTE)b);
+    com_reg_write(port, QUART_THR, (UBYTE)b);
     return 1L;
 }
 
 static void
-com_drain(com_sc_t *sc)
+com_drain(UWORD port)
 {
     WORD    pollcount = 133;        /* 128B FIFO @ 9600bps = 133ms */
 
-    while (!(com_reg_read(sc, QUART_LSR) & QUART_LSR_TXEMT) && pollcount--) {
+    while (!(com_reg_read(port, QUART_LSR) & QUART_LSR_TXEMT) && pollcount--) {
         delay_loop(loopcount_1_msec);
     }
 }
 
 static ULONG
-com_rsconf(WORD port, WORD speed, WORD flow, WORD ucr, WORD rsr, WORD tsr, WORD scr)
+com_rsconf(UWORD port, WORD speed, WORD flow, WORD ucr, WORD rsr, WORD tsr, WORD scr)
 {
     com_sc_t * const sc = &com_sc[port];
     LONG ret;
-
-    KDEBUG(("rsconf %d\n", port));
 
     /* check for current speed request */
     if (speed == -2) {
         return sc->iorec.baudrate;
     }
     ret = (LONG)sc->iorec.ucr << 24;
-    if (com_reg_read(sc, QUART_LSR) & QUART_LSR_BREAK) {
+    if (com_reg_read(port, QUART_LSR) & QUART_LSR_BREAK) {
         ret |= 0x0800;
     }
 
@@ -467,36 +459,33 @@ com_rsconf(WORD port, WORD speed, WORD flow, WORD ucr, WORD rsr, WORD tsr, WORD 
     }
 
     /* wait for the TX FIFO to drain */
-    com_drain(sc);
+    com_drain(port);
 
     /* configure as requested */
-    com_reg_write(sc, QUART_FCR, QUART_FCR_FIFOEN);       /* enable FIFOs, extended mode */
-    com_reg_write(sc, QUART_LCR, QUART_LCR_EXTEN);        /* enable extended registers */
-    com_reg_write(sc, QUART_EFR, QUART_EFR_RTS | QUART_EFR_ENHMODE);
-    com_reg_write(sc, QUART_LCR, QUART_LCR_DLAB);         /* enable divisor latch */
-    com_reg_write(sc, QUART_DLM, com_rate_table[sc->rate_index].dlm);
-    com_reg_write(sc, QUART_DLL, com_rate_table[sc->rate_index].dll);
-    com_reg_write(sc, QUART_LCR, sc->line_code);
-    com_reg_write(sc, QUART_SPR, QUART_CPR);              /* select CPR */
-    com_reg_write(sc, QUART_ICR, com_rate_table[sc->rate_index].cpr);
-    com_reg_write(sc, QUART_SPR, QUART_TCR);              /* select TCR */
-    com_reg_write(sc, QUART_ICR, com_rate_table[sc->rate_index].tcr);
-    com_reg_write(sc, QUART_MCR, QUART_MCR_INTEN | QUART_MCR_PRESCALE);
-    com_reg_write(sc, QUART_IER, QUART_IER_RXRDY);
+    com_reg_write(port, QUART_FCR, QUART_FCR_FIFOEN);       /* enable FIFOs, extended mode */
+    com_reg_write(port, QUART_LCR, QUART_LCR_EXTEN);        /* enable extended registers */
+    com_reg_write(port, QUART_EFR, QUART_EFR_RTS | QUART_EFR_ENHMODE);
+    com_reg_write(port, QUART_LCR, QUART_LCR_DLAB);         /* enable divisor latch */
+    com_reg_write(port, QUART_DLL, com_rate_table[sc->rate_index].dll);
+    com_reg_write(port, QUART_DLM, com_rate_table[sc->rate_index].dlm);
+    com_reg_write(port, QUART_LCR, sc->line_code);
+    com_reg_write(port, QUART_CPR, com_rate_table[sc->rate_index].cpr);
+    com_reg_write(port, QUART_TCR, com_rate_table[sc->rate_index].tcr);
+    com_reg_write(port, QUART_MCR, QUART_MCR_INTEN | QUART_MCR_PRESCALE);
+    com_reg_write(port, QUART_IER, QUART_IER_RXRDY);
     /* XXX handle flow control */
 
     return ret;
 }
 
 static void
-com_interrupt(WORD port)
+com_interrupt(UWORD port)
 {
-    com_sc_t * const sc = &com_sc[port];
     IOREC *in = &com_sc[port].iorec.in;
 
     /* drain the receive FIFO as best we can */
-    while (com_reg_read(sc, QUART_LSR) & QUART_LSR_RXRDY) {
-        UBYTE b = com_reg_read(sc, QUART_RHR);
+    while (com_reg_read(port, QUART_LSR) & QUART_LSR_RXRDY) {
+        UBYTE b = com_reg_read(port, QUART_RHR);
         WORD tail = (in->tail + 1) % COM_BUFSIZE;
 
         if (tail == in->head) {
@@ -622,7 +611,7 @@ com_console_input(UBYTE b)
 static LONG com##_x##_bconstat(void)            { return com_bconstat(_x); }                \
 static LONG com##_x##_bconin(void)              { return com_bconin(_x); }                  \
 static LONG com##_x##_bcostat(void)             { return com_bcostat(_x); }                 \
-static LONG com##_x##_bconout(WORD dev, WORD b) { return com_bconout(_x, dev, b); }         \
+static LONG com##_x##_bconout(WORD dev, WORD b) { return com_bconout(_x, b); }              \
 static ULONG com##_x##_rsconf(WORD baud, WORD ctrl, WORD ucr, WORD rsr, WORD tsr, WORD scr) \
     { return com_rsconf(_x, baud, ctrl, ucr, rsr, tsr, scr); }                              \
 struct hack
@@ -632,7 +621,7 @@ COM_DEFINE_FUNCTIONS(1);
 COM_DEFINE_FUNCTIONS(2);
 COM_DEFINE_FUNCTIONS(3);
 
-static const MAPTAB maptab_init[4] = {
+static const MAPTAB maptab_init[NUM_COM_PORTS] = {
 #define COM_MAPTAB_ENTRY(_x)    { com##_x##_bconstat, com##_x##_bconin, com##_x##_bcostat, com##_x##_bconout, com##_x##_rsconf, &com_sc[_x].iorec }
     COM_MAPTAB_ENTRY(0),
     COM_MAPTAB_ENTRY(1),
@@ -661,7 +650,7 @@ void init_serport(void)
      * Bconmap implementation assumes that the 'old' table can be written.
      */
     memcpy(&maptable, &maptab_init, sizeof(maptab_init));
-    bconmap_root.maptab = maptable;
+    bconmap_root.maptab = &maptable[0];
     bconmap_root.maptabsize = NUM_COM_PORTS;
     bconmap_root.mapped_device = BCONMAP_START_HANDLE;
 
@@ -672,7 +661,6 @@ void init_serport(void)
     for (WORD i = 0; i < NUM_COM_PORTS; i++) {
         memcpy(&com_sc[i].iorec, &iorec_init, sizeof(iorec_init));
         com_sc[i].iorec.in.buf = com_sc[i].ibuf;
-        com_sc[i].io = (volatile UBYTE *)(QUART_BASE + i * QUART_STRIDE);
         com_rsconf(i, DEFAULT_BAUDRATE, 0, 0x88, 0, 0, 0);
     }
 
@@ -691,14 +679,16 @@ void init_serport(void)
  */
 void kprintf_outc(int c)
 {
-    volatile const UBYTE * const lsr = (volatile UBYTE *)(QUART_BASE + QUART_LSR);
-    volatile UBYTE * const thr = (volatile UBYTE *)(QUART_BASE + QUART_THR);
     if (c == '\n') {
         kprintf_outc('\r');
     }
 
-    while ((*lsr & QUART_LSR_THRE) == 0) {}
-    *thr = c;
+    while ((QUART_REG(0, QUART_LSR) & QUART_LSR_THRE) == 0) {}
+    QUART_REG(0, QUART_THR) = c;
+
+    if (c == '\n') {
+        com_drain(0);
+    }
 }
 
 #endif /* MACHINE_IP940 */
