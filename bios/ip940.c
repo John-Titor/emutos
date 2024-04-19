@@ -517,7 +517,7 @@ static UBYTE    esc_seq[ESC_SEQ_LEN_MAX];
 static UWORD    esc_seq_len;
 static UWORD    esc_seq_timer;
 
-static struct scancode_sequence
+static const struct scancode_sequence
 {
     ULONG       scancode;
     UBYTE       sequence[ESC_SEQ_LEN_MAX];
