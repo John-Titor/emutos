@@ -284,10 +284,10 @@ romdisk_rw(WORD rw, LONG sector, WORD count, UBYTE *buf, WORD dev)
 #define COM_BUFSIZE     256
 
 #ifndef B921600
-# define B921600    921
+# define B921600    92
 #endif
 #ifndef B460800
-# define B460800    460
+# define B460800    46
 #endif
 
 static struct
