@@ -63,6 +63,22 @@ corruption. The caches are enabled, and the data cache runs in copyback mode
 for maximum performance. This may cause problems with poorly-written self-
 modifying code.
 
+ROMdisk
+- - - -
+The first 512K of ROM is reserved for the bootrom and EmuTOS. A FAT12
+filesystem of up to 1.5M total size can be flashed starting at 0x00800000,
+and this will be mounted after any CF filesystems.
+
+The script in tools/mkromdisk.sh can be used on macOS / Linux systems to
+create such a filesystem. The script customises the filesystem parameters to
+minimise wasted space.
+
+It's recommended to use an executable packer such as UPX in order to make
+the most of the ROMdisk capacity.
+
+When uploading a new ROMdisk to the IP940 flasher it is not necessary to
+re-flash EmuTOS, and vice versa.
+
 Compatibility Hints
 - - - - - - - - - -
 If EmuTOS crashes with a Bus Error, check the address that's being accessed.
