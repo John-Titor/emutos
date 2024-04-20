@@ -512,7 +512,7 @@ com_shared_interrupt(void)
     }
 }
 
-#define ESC_SEQ_LEN_MAX 4
+#define ESC_SEQ_LEN_MAX 8
 static UBYTE    esc_seq[ESC_SEQ_LEN_MAX];
 static UWORD    esc_seq_len;
 static UWORD    esc_seq_timer;
@@ -523,10 +523,28 @@ static const struct scancode_sequence
     UBYTE       sequence[ESC_SEQ_LEN_MAX];
 } sequence_table[] =
 {
-    { 0x48, { 0x1b, '[', 'A' } },   /* up arrow */
-    { 0x50, { 0x1b, '[', 'B' } },   /* down arrow */
-    { 0x4d, { 0x1b, '[', 'C' } },   /* right arrow */
-    { 0x4b, { 0x1b, '[', 'D' } },   /* left arrow */
+    /*
+     * Keeping CSI in this table seems wasteful, but it greatly
+     * simplifies the input state machine / fallback code.
+     */
+    { 0x48, { 0x1b, '[', 'A' } },           /* up arrow */
+    { 0x50, { 0x1b, '[', 'B' } },           /* down arrow */
+    { 0x4d, { 0x1b, '[', 'C' } },           /* right arrow */
+    { 0x4b, { 0x1b, '[', 'D' } },           /* left arrow */
+    { 0x3b, { 0x1b, '[', '1', 'P', } },     /* vt F1 */
+    { 0x3c, { 0x1b, '[', '1', 'Q', } },     /* vt F2 */
+    { 0x3d, { 0x1b, '[', '1', 'R', } },     /* vt F3 */
+    { 0x3e, { 0x1b, '[', '1', 'S', } },     /* vt F4 */
+    { 0x3b, { 0x1b, 'O', 'P', } },          /* Xterm F1 */
+    { 0x3c, { 0x1b, 'O', 'Q', } },          /* Xterm F2 */
+    { 0x3d, { 0x1b, 'O', 'R', } },          /* Xterm F3 */
+    { 0x3e, { 0x1b, 'O', 'S', } },          /* Xterm F4 */
+    { 0x3f, { 0x1b, '[', '1', '5', '~' } }, /* Xterm F5 */
+    { 0x40, { 0x1b, '[', '1', '7', '~' } }, /* Xterm F6 */
+    { 0x41, { 0x1b, '[', '1', '8', '~' } }, /* Xterm F7 */
+    { 0x42, { 0x1b, '[', '1', '9', '~' } }, /* Xterm F8 */
+    { 0x43, { 0x1b, '[', '2', '0', '~' } }, /* Xterm F9 */
+    { 0x44, { 0x1b, '[', '2', '1', '~' } }, /* Xterm F10 */
     { 0 }
 };
 
@@ -541,10 +559,10 @@ com_console_tick(void)
         break;
     case 1:
         /* timer expiring, push timed-out sequence in as ascii */
-        esc_seq_timer = 0;
         for (i = 0; i < esc_seq_len; i++) {
             push_ascii_ikbdiorec(esc_seq[i]);
         }
+        esc_seq_len = 0;
         /* FALLTHROUGH */
     default:
         /* timer still running */
