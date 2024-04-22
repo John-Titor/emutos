@@ -2,7 +2,6 @@
  * qemu-system-m68k -machine type=atarist
  *
  * TODO:
- * - Disable auto-repeat; can it be done in QEMU? can we do it 'smart' in the keyboard driver?
  * - deskrez.c video mode selection
  *
  * BUGS:
