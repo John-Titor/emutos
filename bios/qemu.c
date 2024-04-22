@@ -3,7 +3,6 @@
  *
  * TODO:
  * - Disable auto-repeat; can it be done in QEMU? can we do it 'smart' in the keyboard driver?
- * - deskrez.c video mode selection
  *
  * BUGS:
  * - Without CONF_STRAM_SIZE, ST RAM sizes as zero
@@ -251,5 +250,17 @@ void machine_add_cookies(void)
 {
     qemu_pci_add_cookies();
     qemu_video_add_cookies();
+}
+
+/********************************************************************
+ * Override kprintf_outc() and write to the goldfish tty.
+ */
+void kprintf_outc(int c)
+{
+    if (c == '\n') {
+        kprintf_outc('\r');
+    }
+    /* send direct to the Goldfish TTY */
+    *(volatile LONG *)0xffffb400UL = c;
 }
 #endif /* MACHINE_QEMU */
