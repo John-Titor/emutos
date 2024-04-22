@@ -3,7 +3,8 @@ EmuTOS - IP940 version
 
 This EmuTOS version supports the the Perceptics IP940 CPU mezzanine card
 on a custom baseboard. See https://github.com/John-Titor/IP940 for more
-details.
+details on the IP940, and https://www.retrobrewcomputers.org/doku.php?id=builderpages:plasmo:68040:ip940:ip940base
+for the baseboard.
 
 Built Files
 -----------
