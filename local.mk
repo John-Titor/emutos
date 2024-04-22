@@ -10,7 +10,7 @@ help-local:
 	@echo "------  -------"
 	@echo "pt68k5  $(EMUTOS_PT68K5), EmuTOS for PT68K5"
 	@echo "ip940   $(EMUTOS_IP940), EmuTOS for IP940 ROM"
-	@echo "qemu    $(ROM_QEMU), suitable for qemu-system-m68k -machine type=atarist"
+	@echo "qemu    $(EMUTOS_QEMU), suitable for qemu-system-m68k -machine type=atarist"
 
 #
 # The rule for emutos.img is instantiated before we are included,
@@ -141,14 +141,14 @@ release-ip940:
 # qemu Image
 #
 
-ROM_QEMU = emutos-qemu.img
+EMUTOS_QEMU = emutos-qemu.img
 
 .PHONY: qemu
 NODEP += qemu
 qemu: override DEF += -DMACHINE_QEMU
 qemu: CPUFLAGS = -m68040
 qemu: ROMSIZE = 1024
-qemu: ROM_PADDED = $(ROM_QEMU)
+qemu: ROM_PADDED = $(EMUTOS_QEMU)
 qemu: WITH_AES = 1
 qemu:
 	@echo "# Building QEMU EmuTOS into $(ROM_PADDED)"
@@ -162,10 +162,10 @@ QEMU_DISK ?= ../disk.bin
 # basic configuration
 QEMU_MEM_SIZE = 64M
 QEMU_OPTS =
-QEMU_OPTS += -kernel $(ROM_QEMU)
-QEMU_OPTS += -L $(QEMU_DIR)/pc-bios
+QEMU_OPTS += -kernel $(EMUTOS_QEMU)
 QEMU_OPTS += -m $(QEMU_MEM_SIZE)
 QEMU_OPTS += -drive file=$(QEMU_DISK),if=ide,format=raw
+QEMU_OPTS += -rtc base=localtime
 
 # the cocoa display has issues, so prefer SDL
 QEMU_OPTS += -display sdl
@@ -173,7 +173,7 @@ QEMU_OPTS += -display sdl
 
 # select the memory-backend options to have emulator memory mapped / save to file
 QEMU_OPTS += -machine type=atarist
-QEMU_MEM = /tmp/atari.mem
+#QEMU_MEM = /tmp/atari.mem
 #QEMU_OPTS += -machine type=atarist,memory-backend=virt.ram
 #QEMU_OPTS += -object memory-backend-file,size=$(QEMU_MEM_SIZE),id=virt.ram,mem-path=$(QEMU_MEM),share=on,prealloc=on
 
@@ -182,7 +182,8 @@ QEMU_OPTS += -serial mon:stdio
 #QEMU_OPTS += -monitor stdio
 
 # optional devices
-QEMU_OPTS += -device cirrus-vga,romfile=vgabios-cirrus.bin
+#QEMU_OPTS += -device cirrus-vga,romfile=vgabios-cirrus.bin
+#QEMU_OPTS += -L $(QEMU_DIR)/pc-bios
 #QEMU_OPTS += -device usb-ehci
 #QEMU_OPTS += -device pci-serial-4x
 #QEMU_OPTS += -device rtl8139
@@ -194,7 +195,7 @@ QEMU_OPTS += -device cirrus-vga,romfile=vgabios-cirrus.bin
 #QEMU_OPTS += -d trace:pci_cfg_'*' -D /tmp/qemu.log
 
 # load image and set explicit entrypoint
-#QEMU_OPTS += -device loader,file=$(ROM_QEMU),addr=0x00e00000,force-raw=on
+#QEMU_OPTS += -device loader,file=$(EMUTOS_QEMU),addr=0x00e00000,force-raw=on
 #QEMU_OPTS += -device loader,addr=0x00e00000,cpu-num=0
 
 qemu-run: qemu
@@ -202,3 +203,23 @@ qemu-run:
 	rm -f $(QEMU_MEM)
 	$(QEMU) $(QEMU_OPTS)
 
+.PHONY: release-qemu
+NODEP += release-qemu
+RELEASE_QEMU = emutos-qemu-$(VERSION)
+release-qemu:
+	$(MAKE) clean
+	$(MAKE) qemu
+	mkdir -p $(RELEASE_DIR)/$(RELEASE_QEMU)
+	cp $(EMUTOS_QEMU) $(RELEASE_DIR)/$(RELEASE_QEMU)
+	cp desk/icon.def $(RELEASE_DIR)/$(RELEASE_QEMU)/emuicon.def
+	cp desk/icon.rsc $(RELEASE_DIR)/$(RELEASE_QEMU)/emuicon.rsc
+	cat doc/readme-qemu.txt readme.txt >$(RELEASE_DIR)/$(RELEASE_QEMU)/readme.txt
+	mkdir -p $(RELEASE_DIR)/$(RELEASE_QEMU)/doc
+	cp $(DOCFILES) $(RELEASE_DIR)/$(RELEASE_QEMU)/doc
+	mkdir -p $(RELEASE_DIR)/$(RELEASE_QEMU)/extras
+	cp $(EXTRAFILES) $(RELEASE_DIR)/$(RELEASE_QEMU)/extras
+	cp aes/mform.def $(RELEASE_DIR)/$(RELEASE_QEMU)/extras/emucurs.def
+	cp aes/mform.rsc $(RELEASE_DIR)/$(RELEASE_QEMU)/extras/emucurs.rsc
+	find $(RELEASE_DIR)/$(RELEASE_QEMU) -name '*.txt' -exec unix2dos '{}' ';'
+	cd $(RELEASE_DIR) && zip -9 -r $(RELEASE_QEMU).zip $(RELEASE_QEMU)
+	rm -r $(RELEASE_DIR)/$(RELEASE_QEMU)
