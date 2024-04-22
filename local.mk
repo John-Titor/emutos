@@ -161,15 +161,14 @@ QEMU_DISK ?= ../disk.bin
 
 # basic configuration
 QEMU_MEM_SIZE = 64M
-QEMU_OPTS =
-QEMU_OPTS += -kernel $(EMUTOS_QEMU)
+QEMU_OPTS = -kernel $(EMUTOS_QEMU)
 QEMU_OPTS += -m $(QEMU_MEM_SIZE)
 QEMU_OPTS += -drive file=$(QEMU_DISK),if=ide,format=raw
 QEMU_OPTS += -rtc base=localtime
 
-# the cocoa display has issues, so prefer SDL
+# prefer the SDL display for development / quick exit
 QEMU_OPTS += -display sdl
-#QEMU_OPTS += -display cocoa,full-screen=off,zoom-to-fit=off
+#QEMU_OPTS += -display cocoa,full-screen=off
 
 # select the memory-backend options to have emulator memory mapped / save to file
 QEMU_OPTS += -machine type=atarist
@@ -180,6 +179,10 @@ QEMU_OPTS += -machine type=atarist
 # serial options
 QEMU_OPTS += -serial mon:stdio
 #QEMU_OPTS += -monitor stdio
+
+# networking
+#QEMU_OPTS += -netdev user,id=n1,hostfwd=tcp:127.0.0.1:8000-:80
+#QEMU_OPTS += -device virtio-net,netdev=n1
 
 # optional devices
 #QEMU_OPTS += -device cirrus-vga,romfile=vgabios-cirrus.bin
