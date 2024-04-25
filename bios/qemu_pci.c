@@ -42,19 +42,6 @@
 #define PCI_MAX_RESOURCES       32
 #define PCI_MAX_INTERRUPTS      PCI_MAX_FUNCTIONS
 
-/* PCI BIOS errors */
-#define PCI_SUCCESSFUL          0x00000000
-#define PCI_FUNC_NOT_SUPPORTED  0xfffffffe
-#define PCI_BAD_VENDOR_ID       0xfffffffd
-#define PCI_DEVICE_NOT_FOUND    0xfffffffc
-#define PCI_BAD_REGISTER_NUMBER 0xfffffffb
-#define PCI_SET_FAILED          0xfffffffa
-#define PCI_BUFFER_TOO_SMALL    0xfffffff9
-#define PCI_GENERAL_ERROR       0xfffffff8
-#define PCI_BAD_HANDLE          0xfffffff7
-
-#define PCI_RESULT_IS_ERROR(_x) (_x > 0xfffffff0)
-
 /*
  *  3.11.  Get Resource Data
  *
@@ -1189,7 +1176,53 @@ static void print_function(LONG handle)
                     rsc->length));
         } while (!((rsc++)->flags & RSC_LAST));
     }
+    UBYTE capptr = qemu_pci_fast_read_config_byte(handle, PCIR_CAP_PTR);
+    while (capptr != 0) {
+        UBYTE capid = qemu_pci_fast_read_config_byte(handle, capptr);
+        if (capid == 9) {
+            KDEBUG(("  type 0x%02x bar 0x%02x id 0x%02x offset 0x%08lx\n",
+                    qemu_pci_fast_read_config_byte(handle, capptr + 3),
+                    qemu_pci_fast_read_config_byte(handle, capptr + 4),
+                    qemu_pci_fast_read_config_byte(handle, capptr + 5),
+                    qemu_pci_fast_read_config_longword(handle, capptr + 8)));
+        }
+        capptr = qemu_pci_fast_read_config_byte(handle, capptr + 1);
+    }
 }
+
+#if 0
+/*
+ * Find PCI capability with ID.
+ */
+LONG qemu_pci_find_cap(LONG handle, UBYTE capid, UWORD index)
+{
+    LONG ret;
+    UBYTE capaddr;
+
+    ret = qemu_pci_read_config_byte(handle, PCIR_CAP_PTR, &capaddr);
+    if (ret != PCI_SUCCESSFUL) {
+        return ret;
+    }
+
+    while (capaddr != 0) {
+        UBYTE current_id;
+        ret = qemu_pci_read_config_byte(handle, capaddr, &current_id);
+        if (ret != PCI_SUCCESSFUL) {
+            return ret;
+        }
+        if (current_id == capid) {
+            if (index-- == 0) {
+                return capaddr;
+            }
+        }
+        ret = qemu_pci_read_config_byte(handle, capaddr + 1, &capaddr);
+        if (ret != PCI_SUCCESSFUL) {
+            return ret;
+        }
+    }
+    return PCI_GENERAL_ERROR;
+}
+#endif
 
 static void configure_function(LONG handle)
 {
@@ -1290,6 +1323,7 @@ static void configure_function(LONG handle)
             last_rsc->length = size;
             last_rsc->offset = 0;
             last_rsc->dmaoffset = 0;
+            last_rsc->bar = 6;
         }
     }
 
