@@ -150,7 +150,7 @@ static struct resource_info *alloc_resource(void)
     panic("PCI: resource slots exhausted\n");
 }
 
-static ULONG alloc_mmio(ULONG size)
+static ULONG pci_alloc_mmio(ULONG size)
 {
     static ULONG next_free;
     ULONG ret;
@@ -166,7 +166,7 @@ static ULONG alloc_mmio(ULONG size)
     return ret;
 }
 
-static ULONG alloc_io(ULONG size)
+static ULONG pci_alloc_io(ULONG size)
 {
     static ULONG next_free;
     ULONG ret;
@@ -1209,22 +1209,27 @@ static void configure_function(LONG handle)
         if (mask) {
             ULONG size = 0;
             ULONG addr = 0;
-            BOOL io_alloc = FALSE;
+            BOOL bar_io = FALSE;
+            BOOL bar_64 = FALSE;
 
             if ((mask & 3) == 1) {
                 /* I/O - QEMU doesn't seem to do the high-word shenanigans */
                 size = ~(mask & 0xfffffffcUL) + 1;
-                addr = alloc_io(size);
-                io_alloc = TRUE;
+                addr = pci_alloc_io(size);
+                bar_io = TRUE;
                 qemu_pci_write_config_longword(handle, index, addr);
             } else if ((mask & 0x7) == 0) {
                 /* 32-bit memory */
                 size = ~(mask & 0xfffffff0UL) + 1;
-                addr = alloc_mmio(size);
+                addr = pci_alloc_mmio(size);
                 qemu_pci_write_config_longword(handle, index, addr);
             } else {
-                /* don't try to deal with 64-bit BARs, ideally we won't see them */
-                panic("PCI: BAR 0x%08lx unsupported\n", mask);
+                /* 64-bit memory */
+                size = ~(mask & 0xfffffff0UL) + 1;
+                addr = pci_alloc_mmio(size);
+                bar_64 = TRUE;
+                qemu_pci_write_config_longword(handle, index, addr);
+                qemu_pci_write_config_longword(handle, index + 4, 0);
             }
 
             /* if we allocated something */
@@ -1236,10 +1241,10 @@ static void configure_function(LONG handle)
                 }
 
                 /* record our allocation */
-                last_rsc->flags = ((io_alloc ? RSC_IO : 0) |
+                last_rsc->flags = ((bar_io ? RSC_IO : 0) |
                                    FLG_8BIT | FLG_16BIT | FLG_32BIT |
                                    2);   /* lane-swapped */
-                if (io_alloc) {
+                if (bar_io) {
                     last_rsc->start = PCI_IO_BASE + addr;
                     last_rsc->offset = PCI_IO_BASE;
                 } else {
@@ -1248,6 +1253,9 @@ static void configure_function(LONG handle)
                 }
                 last_rsc->length = size;
                 last_rsc->dmaoffset = 0;
+            }
+            if (bar_64) {
+                index += 4;
             }
         }
     }
@@ -1266,7 +1274,7 @@ static void configure_function(LONG handle)
 
         if (mask && (mask != 0xfffff800UL)) {
             ULONG size = ~(mask & 0xfffff800UL) + 1;
-            ULONG addr = alloc_mmio(size);
+            ULONG addr = pci_alloc_mmio(size);
             qemu_pci_write_config_longword(handle, PCIR_BIOS, addr | 1);
 
             KDEBUG(("exrom 0x%08lx\n", mask));
