@@ -106,33 +106,15 @@
  *  32 bit accesses the read or written data needs to be swapped (ror.w
  *  #8,d0 for 16 bit, ror.w d0:swap d0:ror.w d0 for 32 bit).
  */
-struct resource_info
-{
-    UWORD   next;
-    UWORD   flags;
-    ULONG   start;
-    ULONG   length;
-    ULONG   offset;
-    ULONG   dmaoffset;
-    UBYTE   bar;
-    UBYTE   pad[3];
-};
 
-#define RSC_IO          0x4000
-#define RSC_LAST        0x8000
-#define FLG_8BIT        0x0100
-#define FLG_16BIT       0x0200
-#define FLG_32BIT       0x0400
-#define FLG_ENDMASK     0x000f
+static struct pci_resource_info pci_resources[PCI_MAX_RESOURCES];
 
-static struct resource_info pci_resources[PCI_MAX_RESOURCES];
-
-static struct resource_info *alloc_resource(void)
+static struct pci_resource_info *alloc_resource(void)
 {
     static UWORD next_free;
 
     if (next_free < PCI_MAX_RESOURCES) {
-        struct resource_info *rsc = &pci_resources[next_free++];
+        struct pci_resource_info *rsc = &pci_resources[next_free++];
         rsc->next = sizeof(*rsc);
         return rsc;
     }
@@ -183,7 +165,7 @@ static ULONG pci_alloc_io(ULONG size)
  */
 struct function_info
 {
-    struct resource_info    *resources;
+    struct pci_resource_info    *resources;
     volatile void           *cfg_space;
     ULONG                   driver_status;
     WORD                    interrupt_index;
@@ -416,7 +398,6 @@ LONG qemu_pci_read_config_longword(LONG handle, UWORD reg, ULONG *address)
         return PCI_BUFFER_TOO_SMALL;
     }
     *address = swap32(*(cfg + (reg >> 2)));
-    KDEBUG(("pci_read_config_longword 0x%x = 0x%08lx\n", reg, *address));
     return PCI_SUCCESSFUL;
 }
 
@@ -530,7 +511,6 @@ LONG qemu_pci_write_config_longword(LONG handle, UWORD reg, ULONG val)
         (reg & 3)) {
         return PCI_BAD_REGISTER_NUMBER;
     }
-    KDEBUG(("PCI: cfg write 0x%x = 0x%08lx\n", reg, val));
     *(cfg + (reg >> 2)) = swap32(val);
     return PCI_SUCCESSFUL;
 }
@@ -686,15 +666,12 @@ LONG qemu_pci_get_resource(LONG handle)
 {
     struct function_info *fn = function_for_handle(handle);
 
-    KDEBUG(("pci_get_resource(%ld) @ %p\n", handle, fn));
-
     if (!fn) {
         return PCI_BAD_HANDLE;
     }
     if (!fn->resources) {
         return PCI_GENERAL_ERROR;
     }
-
     return (LONG)fn->resources;
 }
 
@@ -1167,20 +1144,21 @@ static void print_function(LONG handle)
             qemu_pci_fast_read_config_byte(handle, PCIR_SUBCLASS)));
 
     if (fn->resources) {
-        struct resource_info *rsc = fn->resources;
-        KDEBUG(("  resources @ %p\n", rsc));
+        struct pci_resource_info *rsc = fn->resources;
+        KDEBUG((" resources @ %p\n", rsc));
         do {
-            KDEBUG(("  %s @ 0x%08lx/0x%08lx\n", 
-                    ((rsc->flags & RSC_IO) ? " IO" : "MEM"),
+            KDEBUG((" bar %d %s @ 0x%08lx/0x%08lx\n",
+                    rsc->bar,
+                    ((rsc->flags & PCI_RSC_IO) ? " IO" : "MEM"),
                     rsc->start,
                     rsc->length));
-        } while (!((rsc++)->flags & RSC_LAST));
+        } while (!((rsc++)->flags & PCI_RSC_LAST));
     }
     UBYTE capptr = qemu_pci_fast_read_config_byte(handle, PCIR_CAP_PTR);
     while (capptr != 0) {
         UBYTE capid = qemu_pci_fast_read_config_byte(handle, capptr);
         if (capid == 9) {
-            KDEBUG(("  type 0x%02x bar 0x%02x id 0x%02x offset 0x%08lx\n",
+            KDEBUG(("  cap: type 0x%02x bar 0x%02x id 0x%02x offset 0x%08lx\n",
                     qemu_pci_fast_read_config_byte(handle, capptr + 3),
                     qemu_pci_fast_read_config_byte(handle, capptr + 4),
                     qemu_pci_fast_read_config_byte(handle, capptr + 5),
@@ -1190,39 +1168,27 @@ static void print_function(LONG handle)
     }
 }
 
-#if 0
 /*
- * Find PCI capability with ID.
+ * Read a device capability.
+ *
+ * If capptr is zero, returns the config offset of the first capability;
+ * otherwise assumes it is an address previously returned and returns
+ * the address of the next capability.
  */
-LONG qemu_pci_find_cap(LONG handle, UBYTE capid, UWORD index)
+LONG qemu_pci_get_next_cap(LONG handle, UBYTE capptr)
 {
     LONG ret;
-    UBYTE capaddr;
 
-    ret = qemu_pci_read_config_byte(handle, PCIR_CAP_PTR, &capaddr);
+    if (capptr == 0) {
+        ret = qemu_pci_read_config_byte(handle, PCIR_CAP_PTR, &capptr);
+    } else {
+        ret = qemu_pci_read_config_byte(handle, capptr + 1, &capptr);
+    }
     if (ret != PCI_SUCCESSFUL) {
         return ret;
     }
-
-    while (capaddr != 0) {
-        UBYTE current_id;
-        ret = qemu_pci_read_config_byte(handle, capaddr, &current_id);
-        if (ret != PCI_SUCCESSFUL) {
-            return ret;
-        }
-        if (current_id == capid) {
-            if (index-- == 0) {
-                return capaddr;
-            }
-        }
-        ret = qemu_pci_read_config_byte(handle, capaddr + 1, &capaddr);
-        if (ret != PCI_SUCCESSFUL) {
-            return ret;
-        }
-    }
-    return PCI_GENERAL_ERROR;
+    return capptr;
 }
-#endif
 
 static void configure_function(LONG handle)
 {
@@ -1230,7 +1196,7 @@ static void configure_function(LONG handle)
     ULONG mask;
     UWORD reg;
     struct function_info *fn = function_for_handle(handle);
-    struct resource_info *last_rsc = NULL;
+    struct pci_resource_info *last_rsc = NULL;
 
     /*
      * Allocate MMIO resources.
@@ -1272,8 +1238,10 @@ static void configure_function(LONG handle)
                 }
 
                 /* record our allocation */
-                last_rsc->flags = ((bar_io ? RSC_IO : 0) |
-                                   FLG_8BIT | FLG_16BIT | FLG_32BIT |
+                last_rsc->flags = ((bar_io ? PCI_RSC_IO : 0) |
+                                   PCI_RSC_FLG_8BIT |
+                                   PCI_RSC_FLG_16BIT |
+                                   PCI_RSC_FLG_32BIT |
                                    2);   /* lane-swapped */
                 if (bar_io) {
                     last_rsc->start = PCI_IO_BASE + addr;
@@ -1284,7 +1252,7 @@ static void configure_function(LONG handle)
                 }
                 last_rsc->length = size;
                 last_rsc->dmaoffset = 0;
-                last_rsc->bar = index;
+                last_rsc->bar = (index - PCIR_BARS) / 4;
             }
             if (bar_64) {
                 index += 4;
@@ -1309,8 +1277,6 @@ static void configure_function(LONG handle)
             ULONG addr = pci_alloc_mmio(size);
             qemu_pci_write_config_longword(handle, PCIR_BIOS, addr | 1);
 
-            KDEBUG(("exrom 0x%08lx\n", mask));
-
             /* get a new resource */
             last_rsc = alloc_resource();
             if (!fn->resources) {
@@ -1318,7 +1284,9 @@ static void configure_function(LONG handle)
             }
 
             /* record our allocation */
-            last_rsc->flags = FLG_8BIT | FLG_16BIT | FLG_32BIT | 2;
+            last_rsc->flags = (PCI_RSC_FLG_8BIT |
+                               PCI_RSC_FLG_16BIT |
+                               PCI_RSC_FLG_32BIT | 2);
             last_rsc->start = addr;
             last_rsc->length = size;
             last_rsc->offset = 0;
@@ -1329,7 +1297,7 @@ static void configure_function(LONG handle)
 
     /* set last-resource flag */
     if (last_rsc) {
-        last_rsc->flags |= RSC_LAST;
+        last_rsc->flags |= PCI_RSC_LAST;
     }
 
     /* enable I/O decode, mastering, interrupts */

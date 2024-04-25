@@ -336,4 +336,17 @@ pci_return:
     movem.l     (sp)+,d0/a0-a2
     rte
 
+
+/*
+ * Virtio BIOS
+ *
+ * Calling convention is regular args-on-stack.
+ */
+
+    .globl _qemu_vio_dispatch_table
+_qemu_vio_dispatch_table:
+    dc.l        0
+    dc.l        0x00010000
+    .globl      _qemu_vio_get_info
+    dc.l        _qemu_vio_get_info
 #endif /* MACHINE_QEMU */
