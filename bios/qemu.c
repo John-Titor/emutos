@@ -241,6 +241,7 @@ void machine_init(void)
     VEC_LEVEL6 = qemu_mfp_int;
 
     qemu_pci_init();
+    qemu_vio_init();
 }
 
 /********************************************************************
@@ -249,6 +250,7 @@ void machine_init(void)
 void machine_add_cookies(void)
 {
     qemu_pci_add_cookies();
+    qemu_vio_add_cookies();
     qemu_video_add_cookies();
 }
 
@@ -263,4 +265,5 @@ void kprintf_outc(int c)
     /* send direct to the Goldfish TTY */
     *(volatile LONG *)0xffffb400UL = c;
 }
+
 #endif /* MACHINE_QEMU */

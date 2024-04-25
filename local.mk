@@ -19,7 +19,7 @@ help-local:
 #
 LOCAL_OBJS = pt68k5.c \
              ip940.c \
-             qemu.c qemu_pci.c qemu_video.c qemu2.S
+             qemu.c qemu_pci.c qemu_video.c qemu_virtio.c qemu2.S
 
 bios_src += $(LOCAL_OBJS)
 
@@ -183,6 +183,8 @@ QEMU_OPTS += -serial mon:stdio
 # networking
 #QEMU_OPTS += -netdev user,id=n1,hostfwd=tcp:127.0.0.1:8000-:80
 #QEMU_OPTS += -device virtio-net,netdev=n1
+#QEMU_OPTS += -device virtio-9p-pci-non-transitional,fsdev=local
+QEMU_OPTS += -virtfs local,path=/tmp,mount_tag=local,security_model=none,id=local
 
 # optional devices
 #QEMU_OPTS += -device cirrus-vga,romfile=vgabios-cirrus.bin

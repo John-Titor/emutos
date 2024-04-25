@@ -54,6 +54,28 @@ void qemu_vbl_shim(void);
 void qemu_video_add_cookies(void);
 
 /* PCI */
+
+struct pci_resource_info
+{
+    UWORD   next;
+    UWORD   flags;
+    ULONG   start;
+    ULONG   length;
+    ULONG   offset;
+    ULONG   dmaoffset;
+
+    /* private extension data */
+    UBYTE   bar;
+    UBYTE   pad[3];
+};
+
+#define PCI_RSC_IO          0x4000
+#define PCI_RSC_LAST        0x8000
+#define PCI_RSC_FLG_8BIT    0x0100
+#define PCI_RSC_FLG_16BIT   0x0200
+#define PCI_RSC_FLG_32BIT   0x0400
+#define PCI_RSC_FLG_ENDMASK 0x000f
+
 typedef struct pci_conv_adr     /* structure of address conversion */
 {
     ULONG adr;              /* calculated address (CPU<->PCI) */
@@ -118,10 +140,19 @@ LONG qemu_pci_virt_to_bus(LONG handle, ULONG address, PCI_CONV_ADR *conv);
 LONG qemu_pci_bus_to_virt(LONG handle, ULONG address, PCI_CONV_ADR *conv);
 LONG qemu_pci_virt_to_phys(ULONG address, PCI_CONV_ADR *conv);
 LONG qemu_pci_phys_to_virt(ULONG address, PCI_CONV_ADR *conv);
+
+LONG qemu_pci_get_next_cap(LONG handle, UBYTE capptr);
 void qemu_pci_init(void);
 void qemu_pci_interrupt(void);
 void qemu_pci_spurious(void);
 void qemu_pci_add_cookies(void);
+
+/* VirtIO */
+extern PFVOID qemu_vio_dispatch_table[];
+
+ULONG qemu_vio_get_info(ULONG devid);
+void qemu_vio_init(void);
+void qemu_vio_add_cookies(void);
 
 /* misc system */
 void qemu_shutdown(void);
