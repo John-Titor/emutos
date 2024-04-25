@@ -1284,11 +1284,11 @@ static void configure_function(LONG handle)
             last_rsc->offset = 0;
             last_rsc->dmaoffset = 0;
         }
+    }
 
-        /* set last-resource flag */
-        if (last_rsc) {
-            last_rsc->flags |= RSC_LAST;
-        }
+    /* set last-resource flag */
+    if (last_rsc) {
+        last_rsc->flags |= RSC_LAST;
     }
 
     /* enable I/O decode, mastering, interrupts */
