@@ -1214,24 +1214,20 @@ static void configure_function(LONG handle)
             BOOL bar_io = FALSE;
             BOOL bar_64 = FALSE;
 
-            if ((mask & 3) == 1) {
+            if (PCI_BAR_IO(mask)) {
                 /* I/O - QEMU doesn't seem to do the high-word shenanigans */
                 size = ~(mask & 0xfffffffcUL) + 1;
                 addr = pci_alloc_io(size);
                 bar_io = TRUE;
                 qemu_pci_write_config_longword(handle, index, addr);
-            } else if ((mask & 0x7) == 0) {
-                /* 32-bit memory */
+            } else if (PCI_BAR_MEM(mask)) {
                 size = ~(mask & 0xfffffff0UL) + 1;
                 addr = pci_alloc_mmio(size);
                 qemu_pci_write_config_longword(handle, index, addr);
-            } else {
-                /* 64-bit memory */
-                size = ~(mask & 0xfffffff0UL) + 1;
-                addr = pci_alloc_mmio(size);
-                bar_64 = TRUE;
-                qemu_pci_write_config_longword(handle, index, addr);
-                qemu_pci_write_config_longword(handle, index + 4, 0);
+                if (mask & PCIM_BAR_MEM_64) {
+                    bar_64 = TRUE;
+                    qemu_pci_write_config_longword(handle, index + 4, 0);
+                }
             }
 
             /* if we allocated something */
