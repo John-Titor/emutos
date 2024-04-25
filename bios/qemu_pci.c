@@ -127,6 +127,8 @@ struct resource_info
     ULONG   length;
     ULONG   offset;
     ULONG   dmaoffset;
+    UBYTE   bar;
+    UBYTE   pad[3];
 };
 
 #define RSC_IO          0x4000
@@ -1253,6 +1255,7 @@ static void configure_function(LONG handle)
                 }
                 last_rsc->length = size;
                 last_rsc->dmaoffset = 0;
+                last_rsc->bar = index;
             }
             if (bar_64) {
                 index += 4;
