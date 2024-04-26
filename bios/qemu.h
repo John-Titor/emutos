@@ -85,17 +85,17 @@ typedef struct pci_conv_adr     /* structure of address conversion */
 extern PFVOID qemu_pci_dispatch_table[];
 
 /* PCI BIOS errors */
-#define PCI_SUCCESSFUL          0x00000000
-#define PCI_FUNC_NOT_SUPPORTED  0xfffffffe
-#define PCI_BAD_VENDOR_ID       0xfffffffd
-#define PCI_DEVICE_NOT_FOUND    0xfffffffc
-#define PCI_BAD_REGISTER_NUMBER 0xfffffffb
-#define PCI_SET_FAILED          0xfffffffa
-#define PCI_BUFFER_TOO_SMALL    0xfffffff9
-#define PCI_GENERAL_ERROR       0xfffffff8
-#define PCI_BAD_HANDLE          0xfffffff7
+#define PCI_SUCCESSFUL          0x00000000UL
+#define PCI_FUNC_NOT_SUPPORTED  0xfffffffeUL
+#define PCI_BAD_VENDOR_ID       0xfffffffdUL
+#define PCI_DEVICE_NOT_FOUND    0xfffffffcUL
+#define PCI_BAD_REGISTER_NUMBER 0xfffffffbUL
+#define PCI_SET_FAILED          0xfffffffaUL
+#define PCI_BUFFER_TOO_SMALL    0xfffffff9UL
+#define PCI_GENERAL_ERROR       0xfffffff8UL
+#define PCI_BAD_HANDLE          0xfffffff7UL
 
-#define PCI_RESULT_IS_ERROR(_x) (_x > 0xfffffff0)
+#define PCI_RESULT_IS_ERROR(_x) (_x > 0xfffffff0UL)
 
 LONG qemu_pci_find_pci_device(ULONG id, UWORD index);
 LONG qemu_pci_find_pci_classcode(ULONG class, UWORD index);
