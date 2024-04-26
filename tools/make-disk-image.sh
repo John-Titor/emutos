@@ -87,7 +87,7 @@ mformat -v QEMU -T ${partsects} -h 254 -s 63 -H 0 -i ${partition}
 #
 # Copy files if requested.
 #
-for f in ${copyfiles}; do
+for f in ${copyfiles[*]}; do
     mcopy -vs -i ${partition} $f ::
 done
 
