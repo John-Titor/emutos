@@ -148,9 +148,13 @@ void qemu_pci_spurious(void);
 void qemu_pci_add_cookies(void);
 
 /* VirtIO */
+
+#define VIO_SUCCESS         0x00000000UL
+#define VIO_NOT_FOUND       0xfffffffcUL
+
 extern PFVOID qemu_vio_dispatch_table[];
 
-ULONG qemu_vio_get_info(ULONG devid);
+ULONG qemu_vio_find_device(ULONG device_id, ULONG index);
 void qemu_vio_init(void);
 void qemu_vio_add_cookies(void);
 

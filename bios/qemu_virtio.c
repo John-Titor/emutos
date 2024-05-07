@@ -161,13 +161,20 @@ qemu_vio_init(void)
     }
 }
 
+/*
+ * API
+ */
 ULONG
-qemu_vio_get_info(ULONG handle)
+qemu_vio_find_device(ULONG device_id, ULONG index)
 {
-    if (handle < vio_num_devs) {
-        return (ULONG)&vio_devs[handle];
+    for (UWORD i = 0; i < vio_num_devs; i++) {
+        if (device_id == vio_devs[i].device_id) {
+            if (index-- == 0) {
+                return i;
+            }
+        }
     }
-    return 0;
+    return VIO_NOT_FOUND;
 }
 
 #endif /* MACHINE_QEMU */
