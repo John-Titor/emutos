@@ -347,6 +347,6 @@ pci_return:
 _qemu_vio_dispatch_table:
     dc.l        0
     dc.l        0x00010000
-    .globl      _qemu_vio_get_info
-    dc.l        _qemu_vio_get_info
+    .globl      _qemu_vio_find_device
+    dc.l        _qemu_vio_find_device
 #endif /* MACHINE_QEMU */
