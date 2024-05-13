@@ -118,6 +118,48 @@
 #endif
 
 /*
+ * Defaults for the q800 machine
+ */
+#ifdef MACHINE_Q800
+# define CONF_ATARI_HARDWARE 0
+# define CONF_WITH_SCSI 1
+# define CONF_WITH_ADVANCED_CPU 1
+# define CONF_WITH_CACHE_CONTROL 1
+# define CONF_WITH_RESET 0
+# define CONF_DETECT_FIRST_BOOT_WITHOUT_MEMCONF 1
+# define CONF_WITH_APOLLO_68060 0
+# define CONF_WTIH_PRINTER_ICON 0
+# define CONF_WITH_KPRINTF 1
+# define CONF_SERIAL_CONSOLE 1
+# if CONF_SERIAL_CONSOLE
+#  ifndef CONF_SERIAL_CONSOLE_ANSI
+#   define CONF_SERIAL_CONSOLE_ANSI 1
+#  endif
+#  ifndef CONF_SERIAL_CONSOLE_POLLING_MODE
+#   define CONF_SERIAL_CONSOLE_POLLING_MODE 0
+#  endif
+#  ifndef DEFAULT_BAUDRATE
+#   define DEFAULT_BAUDRATE B115200
+#  endif
+# endif
+# ifndef ALWAYS_SHOW_INITINFO
+#  define ALWAYS_SHOW_INITINFO 1
+# endif
+# ifndef CONF_WITH_BUS_ERROR
+#  define CONF_WITH_BUS_ERROR 1
+# endif
+# ifndef USE_STOP_INSN_TO_FREE_HOST_CPU
+#  define USE_STOP_INSN_TO_FREE_HOST_CPU 1
+# endif
+# ifndef ENABLE_KDEBUG
+#  define ENABLE_KDEBUG 0
+# endif
+# if ENABLE_KDEBUG
+#  define RS232_DEBUG_PRINT 0
+# endif
+#endif
+
+/*
  * Defaults for the QEMU machine
  */
 #ifdef MACHINE_QEMU
