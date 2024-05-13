@@ -26,7 +26,7 @@ OUTPUT_FORMAT(binary)
 # define ROM_ORIGIN 0x00fa0000
 #elif defined(TARGET_192)
 # define ROM_ORIGIN 0x00fc0000
-#else
+#elif !defined(ROM_ORIGIN)
 # define ROM_ORIGIN 0x00e00000
 #endif
 
