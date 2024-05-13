@@ -35,6 +35,7 @@
 #include "string.h"
 #include "tosvars.h"
 #include "vectors.h"
+#include "cookie.h"
 
 static void com_console_tick(void);
 static void com_console_input(UBYTE b);
@@ -114,6 +115,15 @@ void machine_init(void)
 
     /* enable the 200Hz/50Hz timers */
     TIMER_START = 0;
+}
+
+/*
+ * Add machine-specific cookies.
+ */
+void machine_add_cookies(void)
+{
+    /* install the PMMU cookie to claim the PMMU */
+    cookie_add(0x504d4d55, 0UL);
 }
 
 /*
