@@ -10,6 +10,7 @@ help-local:
 	@echo "------  -------"
 	@echo "pt68k5  $(EMUTOS_PT68K5), EmuTOS for PT68K5"
 	@echo "ip940   $(EMUTOS_IP940), EmuTOS for IP940 ROM"
+	@echo "q800    $(EMUTOS_Q800), EmuTOS for qemu-system-m68k -machine q800"
 	@echo "qemu    $(EMUTOS_QEMU), suitable for qemu-system-m68k -machine type=atarist"
 
 #
@@ -19,6 +20,7 @@ help-local:
 #
 LOCAL_OBJS = pt68k5.c \
              ip940.c \
+             q800.c \
              qemu.c qemu_pci.c qemu_video.c qemu_virtio.c qemu2.S
 
 bios_src += $(LOCAL_OBJS)
@@ -137,6 +139,89 @@ release-ip940:
 	rm -r $(RELEASE_DIR)/$(RELEASE_IP940)
 
 
+################################################################################
+#
+# Quadra 800 as emulated by qemu
+#
+
+EMUTOS_Q800 = emutos-q800.img
+
+.PHONY: q800
+NODEP += q800
+q800: override DEF += -DMACHINE_QEMU
+q800: CPUFLAGS = -m68040
+q800: ROMSIZE = 1024
+q800: ROM_PADDED = $(EMUTOS_Q800)
+q800: WITH_AES = 1
+q800:
+	@echo "# Building q800 EmuTOS into $(ROM_PADDED)"
+	$(MAKE) CPUFLAGS='$(CPUFLAGS)' OPTFLAGS='$(OPTFLAGS)' DEF='$(DEF)' WITH_AES=$(WITH_AES) ROMSIZE=$(ROMSIZE) ROM_PADDED=$(ROM_PADDED) $(ROM_PADDED)
+
+# override these to suit local paths
+q800-run: QEMU_DIR ?= ../../../_Emulators/qemu/qemu
+q800-run: QEMU ?= ../../../_Emulators/qemu/qemu/build/qemu-system-m68k
+q800-run: QEMU_DISK ?= ../disk.bin
+
+# basic configuration
+q800-run: QEMU_MEM_SIZE = 0x800000
+q800-run: QEMU_OPTS = -bios $(EMUTOS_Q800)
+q800-run: QEMU_OPTS += -machine type=q800
+q800-run: QEMU_OPTS += -m $(QEMU_MEM_SIZE)
+q800-run: QEMU_OPTS += -rtc base=localtime
+
+#q800-run: QEMU_OPTS += -drive file=$(QEMU_DISK),if=scsi,format=raw
+
+# phystop, per configured memory size
+q800-run: QEMU_OPTS += -device loader,addr=0x42e,data-len=4,data-be=$(QEMU_MEM_SIZE)
+# memctrl, resvalid, ramtop, warm_magic must be zero
+q800-run: QEMU_OPTS += -device loader,addr=0x424,data-len=4,data-be=0
+q800-run: QEMU_OPTS += -device loader,addr=0x426,data-len=4,data-be=0
+q800-run: QEMU_OPTS += -device loader,addr=0x5a4,data-len=4,data-be=0
+q800-run: QEMU_OPTS += -device loader,addr=0x6fc,data-len=4,data-be=0
+# memvalid, memval2, memval3, ramvalid set to magic numbers
+q800-run: QEMU_OPTS += -device loader,addr=0x420,data-len=4,data-be=0x752019f3
+q800-run: QEMU_OPTS += -device loader,addr=0x43a,data-len=4,data-be=0x237698aa
+q800-run: QEMU_OPTS += -device loader,addr=0x51a,data-len=4,data-be=0x5555aaaa
+q800-run: QEMU_OPTS += -device loader,addr=0x5a8,data-len=4,data-be=0x1357bd13
+
+# prefer the SDL display for development / quick exit
+q800-run: QEMU_OPTS += -display sdl
+#q800-run: QEMU_OPTS += -display cocoa,full-screen=off
+
+# serial options
+q800-run: QEMU_OPTS += -serial mon:stdio
+
+# trace single instructions - huge logfiles
+#q800-run: QEMU_OPTS += -accel tcg,one-insn-per-tb=on,thread=single -d exec,cpu,in_asm -D /tmp/qemu.log
+#q800-run: QEMU_OPTS += -nographic
+
+q800-run: q800
+q800-run:
+	rm -f $(QEMU_MEM)
+	$(QEMU) $(QEMU_OPTS)
+
+.PHONY: release-q800
+NODEP += release-q800
+RELEASE_Q800 = emutos-q800-$(VERSION)
+release-q800:
+	$(MAKE) clean
+	$(MAKE) q800
+	mkdir -p $(RELEASE_DIR)/$(RELEASE_Q800)
+	cp $(EMUTOS_Q800) $(RELEASE_DIR)/$(RELEASE_Q800)
+	cp desk/icon.def $(RELEASE_DIR)/$(RELEASE_Q800)/emuicon.def
+	cp desk/icon.rsc $(RELEASE_DIR)/$(RELEASE_Q800)/emuicon.rsc
+	cat doc/readme-q800.txt readme.txt >$(RELEASE_DIR)/$(RELEASE_Q800)/readme.txt
+	mkdir -p $(RELEASE_DIR)/$(RELEASE_Q800)/doc
+	cp $(DOCFILES) $(RELEASE_DIR)/$(RELEASE_Q800)/doc
+	mkdir -p $(RELEASE_DIR)/$(RELEASE_Q800)/extras
+	cp $(EXTRAFILES) $(RELEASE_DIR)/$(RELEASE_Q800)/extras
+	cp aes/mform.def $(RELEASE_DIR)/$(RELEASE_Q800)/extras/emucurs.def
+	cp aes/mform.rsc $(RELEASE_DIR)/$(RELEASE_Q800)/extras/emucurs.rsc
+	find $(RELEASE_DIR)/$(RELEASE_Q800) -name '*.txt' -exec unix2dos '{}' ';'
+	cd $(RELEASE_DIR) && zip -9 -r $(RELEASE_Q800).zip $(RELEASE_Q800)
+	rm -r $(RELEASE_DIR)/$(RELEASE_Q800)
+
+
 #
 # qemu Image
 #
@@ -155,53 +240,53 @@ qemu:
 	$(MAKE) CPUFLAGS='$(CPUFLAGS)' OPTFLAGS='$(OPTFLAGS)' DEF='$(DEF)' WITH_AES=$(WITH_AES) ROMSIZE=$(ROMSIZE) ROM_PADDED=$(ROM_PADDED) $(ROM_PADDED)
 
 # override these to suit local paths
-QEMU_DIR ?= ../../../_Emulators/qemu/qemu
-QEMU ?= ../../../_Emulators/qemu/qemu/build/qemu-system-m68k
-QEMU_DISK ?= ../disk.bin
+qemu-run: QEMU_DIR ?= ../../../_Emulators/qemu/qemu
+qemu-run: QEMU ?= ../../../_Emulators/qemu/qemu/build/qemu-system-m68k
+qemu-run: QEMU_DISK ?= ../disk.bin
 
 # basic configuration
-QEMU_MEM_SIZE = 64M
-QEMU_OPTS = -kernel $(EMUTOS_QEMU)
-QEMU_OPTS += -m $(QEMU_MEM_SIZE)
-QEMU_OPTS += -drive file=$(QEMU_DISK),if=ide,format=raw
-QEMU_OPTS += -rtc base=localtime
+qemu-run: QEMU_MEM_SIZE = 64M
+qemu-run: QEMU_OPTS = -kernel $(EMUTOS_QEMU)
+qemu-run: QEMU_OPTS += -m $(QEMU_MEM_SIZE)
+qemu-run: QEMU_OPTS += -drive file=$(QEMU_DISK),if=ide,format=raw
+qemu-run: QEMU_OPTS += -rtc base=localtime
 
 # prefer the SDL display for development / quick exit
-QEMU_OPTS += -display sdl
-#QEMU_OPTS += -display cocoa,full-screen=off
+qemu-run: QEMU_OPTS += -display sdl
+#qemu-run: QEMU_OPTS += -display cocoa,full-screen=off
 
 # select the memory-backend options to have emulator memory mapped / save to file
-QEMU_OPTS += -machine type=atarist
-#QEMU_MEM = /tmp/atari.mem
-#QEMU_OPTS += -machine type=atarist,memory-backend=virt.ram
-#QEMU_OPTS += -object memory-backend-file,size=$(QEMU_MEM_SIZE),id=virt.ram,mem-path=$(QEMU_MEM),share=on,prealloc=on
+qemu-run: QEMU_OPTS += -machine type=atarist
+#qemu-run: QEMU_MEM = /tmp/atari.mem
+#qemu-run: QEMU_OPTS += -machine type=atarist,memory-backend=virt.ram
+#qemu-run: QEMU_OPTS += -object memory-backend-file,size=$(QEMU_MEM_SIZE),id=virt.ram,mem-path=$(QEMU_MEM),share=on,prealloc=on
 
 # serial options
-QEMU_OPTS += -serial mon:stdio
-#QEMU_OPTS += -monitor stdio
+qemu-run: QEMU_OPTS += -serial mon:stdio
+#qemu-run: QEMU_OPTS += -monitor stdio
 
 # networking
-#QEMU_OPTS += -netdev user,id=n1,hostfwd=tcp:127.0.0.1:8000-:80
-#QEMU_OPTS += -device virtio-net,netdev=n1
-#QEMU_OPTS += -device virtio-9p-pci-non-transitional,fsdev=local
-QEMU_OPTS += -virtfs local,path=/tmp,mount_tag=local,security_model=none,id=local
+#qemu-run: QEMU_OPTS += -netdev user,id=n1,hostfwd=tcp:127.0.0.1:8000-:80
+#qemu-run: QEMU_OPTS += -device virtio-net,netdev=n1
+#qemu-run: QEMU_OPTS += -device virtio-9p-pci-non-transitional,fsdev=local
+qemu-run: QEMU_OPTS += -virtfs local,path=/tmp,mount_tag=local,security_model=none,id=local
 
 # optional devices
-#QEMU_OPTS += -device cirrus-vga,romfile=vgabios-cirrus.bin
-#QEMU_OPTS += -L $(QEMU_DIR)/pc-bios
-#QEMU_OPTS += -device usb-ehci
-#QEMU_OPTS += -device pci-serial-4x
-#QEMU_OPTS += -device rtl8139
-#QEMU_OPTS += -device sdhci-pci
+#qemu-run: QEMU_OPTS += -device cirrus-vga,romfile=vgabios-cirrus.bin
+#qemu-run: QEMU_OPTS += -L $(QEMU_DIR)/pc-bios
+#qemu-run: QEMU_OPTS += -device usb-ehci
+#qemu-run: QEMU_OPTS += -device pci-serial-4x
+#qemu-run: QEMU_OPTS += -device rtl8139
+#qemu-run: QEMU_OPTS += -device sdhci-pci
 
 # trace single instructions - huge logfiles
-#QEMU_OPTS += -accel tcg,one-insn-per-tb=on,thread=single -d exec,cpu,in_asm -D /tmp/qemu.log
-#QEMU_OPTS += -nographic
-#QEMU_OPTS += -d trace:pci_cfg_'*' -D /tmp/qemu.log
+#qemu-run: QEMU_OPTS += -accel tcg,one-insn-per-tb=on,thread=single -d exec,cpu,in_asm -D /tmp/qemu.log
+#qemu-run: QEMU_OPTS += -nographic
+#qemu-run: QEMU_OPTS += -d trace:pci_cfg_'*' -D /tmp/qemu.log
 
 # load image and set explicit entrypoint
-#QEMU_OPTS += -device loader,file=$(EMUTOS_QEMU),addr=0x00e00000,force-raw=on
-#QEMU_OPTS += -device loader,addr=0x00e00000,cpu-num=0
+#qemu-run: QEMU_OPTS += -device loader,file=$(EMUTOS_QEMU),addr=0x00e00000,force-raw=on
+#qemu-run: QEMU_OPTS += -device loader,addr=0x00e00000,cpu-num=0
 
 qemu-run: qemu
 qemu-run:
