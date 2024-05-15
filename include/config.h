@@ -1535,6 +1535,16 @@
 #endif
 
 /*
+ * Set CONF_WITH_CONFIGURED_PMMU to assume that the PMMU and transparent
+ * translation registers have been pre-configured by the bootloader.
+ * This makes it possible to support systems with otherwise incompatible
+ * memory layouts.
+ */
+#ifndef CONF_WITH_CONFIGURED_PMMU
+# define CONF_WITH_CONFIGURED_PMMU 0
+#endif
+
+/*
  * Set CONF_WITH_BIOS_EXTENSIONS to 1 to support various BIOS extension
  * functions
  */
@@ -2201,6 +2211,18 @@
 # endif
 # if CONF_WITH_CACHE_CONTROL
 #  error CONF_WITH_CACHE_CONTROL requires CONF_WITH_ADVANCED_CPU.
+# endif
+# if CONF_WITH_CONFIGURED_PMMU
+#  error CONF_WITH_CONFIGURED_PMMU requires CONF_WITH_ADVANCED_CPU.
+# endif
+#endif
+
+#if CONF_WITH_CONFIGURED_PMMU
+# if CONF_WITH_68030_PMMU
+#  error CONF_WITH_68030_PMMU conflicts with CONF_WITH_CONFIGURED_PMMU.
+# endif
+# if CONF_WITH_68040_PMMU
+#  error CONF_WITH_68040_PMMU conflicts with CONF_WITH_CONFIGURED_PMMU.
 # endif
 #endif
 
