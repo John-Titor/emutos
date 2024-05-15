@@ -322,6 +322,7 @@ m68040:
 // set later by ttram_detect()
 
 m68060:
+#if !CONF_WITH_CONFIGURED_PMMU
 //
 // On a 68040 or a 68060:
 //   disable the PMMU (it might be enabled if we're running as a PRG)
@@ -353,6 +354,8 @@ m68060:
         CINVA_BC                // invalidate the caches
         nop
         move.l  d1,d0           // recover the enable value
+
+#endif /* CONF_WITH_CONFIGURED_PMMU */
 
 init_cacr:
 #if CONF_WITH_CACHE_CONTROL
