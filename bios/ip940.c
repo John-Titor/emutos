@@ -311,8 +311,8 @@ static struct
     { B921600,  0x09, 0x00, 0x02, 0x00 },
     { B460800,  0x09, 0x00, 0x04, 0x00 },
     { B230400,  0x08, 0x00, 0x09, 0x00 },
-    { B115200,  0x1d, 0x00, 0x05, 0x00 },
     { B153600,  0x6d, 0x00, 0x01, 0x00 },
+    { B115200,  0x1d, 0x00, 0x05, 0x00 },
     { B78600,   0x35, 0x00, 0x04, 0x00 },
     { B57600,   0x11, 0x00, 0x11, 0x00 },
     { B38400,   0x0e, 0x00, 0x1f, 0x00 },
@@ -326,6 +326,9 @@ static struct
     { B1200,    0x70, 0x00, 0x7c, 0x00 },
     { B600,     0x9c, 0x00, 0xb2, 0x00 },
     { B300,     0xeb, 0x00, 0xec, 0x00 },
+    { B150,     0x1d, 0x00, 0x05, 0x00 },   /* RSVE extension -> 115200 */
+    { B134,     0x11, 0x00, 0x11, 0x00 },   /* RSVE extension -> 57600 */
+    { B110,     0x0e, 0x00, 0x1f, 0x00 },   /* RSVE extension -> 38400 */
     { -1},
 };
 
@@ -534,7 +537,7 @@ static const struct scancode_sequence
 } sequence_table[] =
 {
     /*
-     * Keeping CSI in this table seems wasteful, but it greatly
+     * Keeping ESC in this table seems wasteful, but it greatly
      * simplifies the input state machine / fallback code.
      */
     { 0x48, { 0x1b, '[', 'A' } },           /* up arrow */
@@ -613,6 +616,7 @@ com_console_input(UBYTE b)
         /* match? */
         if (j == esc_seq_len) {
             /* yes: push scan code, reset state machine, done */
+            KDEBUG(("cvt 0x%08lx\n", MAKE_ULONG(seq->scancode, 0)));
             push_ikbdiorec(MAKE_ULONG(seq->scancode, 0));
             esc_seq_len = 0;
             esc_seq_timer = 0;
@@ -668,6 +672,17 @@ static const EXT_IOREC iorec_init = {
     { NULL, COM_BUFSIZE, 0, 0, COM_BUFSIZE/4, 3*COM_BUFSIZE/4 },
     DEFAULT_BAUDRATE, FLOW_CTRL_NONE, 0x88, 0xff, 0xea };
 
+/* RSVF cookie structure */
+typedef struct {
+    const char  *name;
+    UBYTE       flags;
+    UBYTE       _res0;
+    UBYTE       bios_dev;
+    UBYTE       _res1;
+} rsvf_interface_t;
+
+static rsvf_interface_t rsvf_data[4];
+
 /*
  * Override init_serport() and install our own bconmap table.
  */
@@ -705,6 +720,23 @@ void init_serport(void)
     bconout_vec[1] = maptabptr->Bconout;
     rsconfptr = maptabptr->Rsconf;
     rs232iorecptr = maptabptr->Iorec;
+
+    /* install RSVF cookie and initial table to give names to BIOS ports */
+    rsvf_data[0].name = "COM1";
+    rsvf_data[0].flags = 0xa0;      /* is-interface, BIOS only */
+    rsvf_data[0].bios_dev = BCONMAP_START_HANDLE + 1;
+    rsvf_data[1].name = "COM2";
+    rsvf_data[1].flags = 0xa0;      /* is-interface, BIOS only */
+    rsvf_data[1].bios_dev = BCONMAP_START_HANDLE + 2;
+    rsvf_data[2].name = "COM3";
+    rsvf_data[2].flags = 0xa0;      /* is-interface, BIOS only */
+    rsvf_data[2].bios_dev = BCONMAP_START_HANDLE + 3;
+    rsvf_data[3].name = 0;
+    rsvf_data[3].flags = 0;
+    cookie_add(0x52535646UL, (ULONG)&rsvf_data);
+
+    /* install RSVE cookie to indicate support for 38400/57600/115200 */
+    cookie_add(0x52535645UL, 0UL);
 }
 
 /*

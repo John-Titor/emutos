@@ -1,27 +1,57 @@
-#!/bin/bash
+#!/bin/bash -e
 #
-# Script to create a ROMdisk image
+# Prepare a ROMdisk image.
 #
 
-function usage_fail {
+usage() {
     echo "error: $1"
-    echo "usage: mkromdisk <machine> <directory>"
+    cat >/dev/stderr << END
+
+usage: $0 --machine <machine> --file <image-file-name> [<file or directory>...]"
+
+END
     exit 1
 }
 
-function fail {
+fail() {
     echo "error: $1"
     exit 1
 }
 
+machine=()
+copyfiles=()
+diskimage=()
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --machine)
+            machine=$2
+            shift
+            shift
+            ;;
+        --file)
+            diskimage=$2
+            shift
+            shift
+            ;;
+        --*)
+            usage "unknown option $1"
+            ;;
+        *)
+            copyfiles+=("$1")
+            shift
+            ;;
+    esac
+done
+
 #
-# parse arguments
+# Remove any existing disk image file and create a new one.
 #
-if [ $# -ne 2 ]; then
-    usage_fail "wrong number of arguments"
+if [ -z ${diskimage} ]; then
+    usage "Missing disk image filename."
 fi
-machine=$1
-source_dir="$2"
+rm -f ${diskimage}
+
 case ${machine} in
     ip940)
         # 512K of ROM for bootloader and EmuTOS, remainder for disk
@@ -35,9 +65,6 @@ case ${machine} in
         usage_fail "${machine} not a recognized machine"
         ;;
 esac
-if [ ! -d "${source_dir}" ]; then
-    usage_fail "${source_dir} is not a directory"
-fi
 
 #
 # Size the disk image.
@@ -49,36 +76,43 @@ fi
 # ---
 #  27 sectors overhead + 1 spare
 #
-# XXX assumes the disk is small enough that the cluster size
-#     is 512B - need some sort of sanity check.
-#
-files_size=`du -sB 512 ${source_dir} | cut -f 1`
+files_size=`du -cB 512 ${copyfiles[*]} | tail -1 | cut -f 1`
 disk_nsectors=$((${files_size} + 28))
 
 if [ ${disk_nsectors} -gt ${disk_max_sectors} ]; then
     fail "not enough ROM space for files (need ${disk_nsectors} have ${disk_max_sectors}"
 fi
+if [ ${disk_nsectors} -gt 4090 ]; then
+    fail "cluster size > 512B not currently supported, adjust disk_nsectors calculation"
+fi
+
+#
+# preemptively nuke .DS_Store turds from the source before copying
+#
+for f in ${copyfiles[*]}; do
+    if [ -d $f ]; then
+        find $f -name .DS_Store -delete
+    fi
+done
 
 #
 # create the image and copy files
 #
-# preemptively nuke .DS_Store turds from the source before copying
-#
-disk_file=romdisk.${machine}
-rm -f ${disk_file}
+rm -f ${diskimage}
 export MTOOLS_NO_VFAT=1
-mformat -i ${disk_file} -r 2 -C -T ${disk_nsectors}
-find ${source_dir} -name .DS_Store -delete
-mcopy -i ${disk_file} -bsvQ ${source_dir}/* ::/
+mformat -i ${diskimage} -r 2 -C -T ${disk_nsectors}
+for f in ${copyfiles[*]}; do
+    mcopy -vbsQ -i ${diskimage} $f ::
+done
 
 #
-# if required, convert the output format for upload
+# if required, convert the output format for upload.
 #
 case ${output_fmt} in
     srec)
-        srec_temp=`mktemp mkromdisk.XXXX`
-        m68k-elf-objcopy -I binary -O srec --adjust-vma ${srec_address} --srec-forceS3 --srec-len 100 ${disk_file} ${srec_temp}
-        mv ${srec_temp} ${disk_file}
+        srec_temp=`mktemp ${diskimage}.XXXX`
+        m68k-elf-objcopy -I binary -O srec --adjust-vma ${srec_address} --srec-forceS3 --srec-len 100 ${diskimage} ${srec_temp}
+        mv ${srec_temp} ${diskimage}
         ;;
     binary)
         ;;
