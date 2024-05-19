@@ -63,7 +63,7 @@ if [ $disksize -gt 512 ]; then
 fi
 partsects=$((${disksize} * 2048 - 63))
 if [ "${systype}" == "Darwin" ]; then
-    cat <<END | fdisk -eyr ${diskimage} || true
+    cat <<END | fdisk  -eyr -f /dev/zero ${diskimage} || true
 63,${partsects},0x06,*,0,1,1,1023,254,63
 0,0,0x00,-,0,0,0,0,0,0
 0,0,0x00,-,0,0,0,0,0,0
@@ -88,7 +88,7 @@ mformat -v QEMU -T ${partsects} -h 254 -s 63 -H 0 -i ${partition}
 # Copy files if requested.
 #
 for f in ${copyfiles[*]}; do
-    mcopy -vs -i ${partition} $f ::
+    mcopy -vbsQ -i ${partition} $f ::
 done
 
 echo "Done"
