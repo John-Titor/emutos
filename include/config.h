@@ -33,10 +33,12 @@
 /*
  * Determine if this EmuTOS is built for ROM or RAM
  */
-#if defined(TARGET_PRG) || defined(TARGET_FLOPPY) || defined(TARGET_AMIGA_FLOPPY) || defined(TARGET_LISA_FLOPPY)
-#  define EMUTOS_LIVES_IN_RAM 1
-# else
-#  define EMUTOS_LIVES_IN_RAM 0
+#if !defined(EMUTOS_LIVES_IN_RAM)
+# if defined(TARGET_PRG) || defined(TARGET_FLOPPY) || defined(TARGET_AMIGA_FLOPPY) || defined(TARGET_LISA_FLOPPY)
+#   define EMUTOS_LIVES_IN_RAM 1
+#  else
+#   define EMUTOS_LIVES_IN_RAM 0
+# endif
 #endif
 
 /*
