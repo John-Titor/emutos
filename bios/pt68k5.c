@@ -33,6 +33,7 @@
 #include "../bdos/bdosstub.h"
 #include "ikbd.h"
 #include "clock.h"
+#include "machine.h"
 #include "vectors.h"
 #include "tosvars.h"
 #include "duart68681.h"
@@ -449,4 +450,15 @@ void screen_get_current_mode_info(UWORD *planes, UWORD *hz_rez, UWORD *vt_rez)
     *vt_rez = 480;
 }
 
+/*
+ * Override machine_name and return something appropriate.
+ */
+const char *
+machine_name(void)
+{
+    return "PT68K5";
+}
+
+
 #endif /* MACHINE_PT68K5 */
+
