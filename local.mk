@@ -148,7 +148,7 @@ EMUTOS_Q800 = emutos-q800.img
 
 .PHONY: q800
 NODEP += q800
-q800: override DEF += -DMACHINE_QEMU
+q800: override DEF += -DMACHINE_Q800
 q800: CPUFLAGS = -m68040
 q800: ROMSIZE = 1024
 q800: ROM_PADDED = $(EMUTOS_Q800)
@@ -163,7 +163,8 @@ q800-run: QEMU ?= ../../../_Emulators/qemu/qemu/build/qemu-system-m68k
 q800-run: QEMU_DISK ?= ../disk.bin
 
 # basic configuration
-q800-run: QEMU_MEM_SIZE = 0x800000
+q800-run: QEMU_MEM_BYTES_LE = 0x00008000
+q800-run: QEMU_MEM_SIZE = 8M
 q800-run: QEMU_OPTS = -bios $(EMUTOS_Q800)
 q800-run: QEMU_OPTS += -machine type=q800
 q800-run: QEMU_OPTS += -m $(QEMU_MEM_SIZE)
@@ -171,18 +172,20 @@ q800-run: QEMU_OPTS += -rtc base=localtime
 
 #q800-run: QEMU_OPTS += -drive file=$(QEMU_DISK),if=scsi,format=raw
 
+# set PC to base of ROM
+q800-run: QEMU_OPTS += -device loader,addr=0x40800000,cpu-num=0
 # phystop, per configured memory size
-q800-run: QEMU_OPTS += -device loader,addr=0x42e,data-len=4,data-be=$(QEMU_MEM_SIZE)
+q800-run: QEMU_OPTS += -device loader,addr=0x42e,data=$(QEMU_MEM_BYTES_LE),data-len=4
 # memctrl, resvalid, ramtop, warm_magic must be zero
-q800-run: QEMU_OPTS += -device loader,addr=0x424,data-len=4,data-be=0
-q800-run: QEMU_OPTS += -device loader,addr=0x426,data-len=4,data-be=0
-q800-run: QEMU_OPTS += -device loader,addr=0x5a4,data-len=4,data-be=0
-q800-run: QEMU_OPTS += -device loader,addr=0x6fc,data-len=4,data-be=0
-# memvalid, memval2, memval3, ramvalid set to magic numbers
-q800-run: QEMU_OPTS += -device loader,addr=0x420,data-len=4,data-be=0x752019f3
-q800-run: QEMU_OPTS += -device loader,addr=0x43a,data-len=4,data-be=0x237698aa
-q800-run: QEMU_OPTS += -device loader,addr=0x51a,data-len=4,data-be=0x5555aaaa
-q800-run: QEMU_OPTS += -device loader,addr=0x5a8,data-len=4,data-be=0x1357bd13
+q800-run: QEMU_OPTS += -device loader,addr=0x424,data=0,data-len=4
+q800-run: QEMU_OPTS += -device loader,addr=0x426,data=0,data-len=4
+q800-run: QEMU_OPTS += -device loader,addr=0x5a4,data=0,data-len=4
+q800-run: QEMU_OPTS += -device loader,addr=0x6fc,data=0,data-len=4
+# memvalid, memval2, memval3, ramvalid set to little-endian magic numbers (data-be is broken)
+q800-run: QEMU_OPTS += -device loader,addr=0x420,data=0xf3192075,data-len=4
+q800-run: QEMU_OPTS += -device loader,addr=0x43a,data=0xaa987623,data-len=4
+q800-run: QEMU_OPTS += -device loader,addr=0x51a,data=0xaaaa5555,data-len=4
+q800-run: QEMU_OPTS += -device loader,addr=0x5a8,data=0x13bd5713,data-len=4
 
 # prefer the SDL display for development / quick exit
 q800-run: QEMU_OPTS += -display sdl
@@ -192,8 +195,12 @@ q800-run: QEMU_OPTS += -display sdl
 q800-run: QEMU_OPTS += -serial mon:stdio
 
 # trace single instructions - huge logfiles
-#q800-run: QEMU_OPTS += -accel tcg,one-insn-per-tb=on,thread=single -d exec,cpu,in_asm -D /tmp/qemu.log
-#q800-run: QEMU_OPTS += -nographic
+q800-run: QEMU_OPTS += -accel tcg,one-insn-per-tb=on,thread=single -d exec,cpu,in_asm -D /tmp/qemu.log
+q800-run: QEMU_OPTS += -nographic
+# memory image in file
+q800-run: QEMU_MEM = /tmp/q800.mem
+q800-run: QEMU_OPTS += -machine memory-backend=virt.ram
+q800-run: QEMU_OPTS += -object memory-backend-file,size=$(QEMU_MEM_SIZE),id=virt.ram,mem-path=$(QEMU_MEM),share=on,prealloc=on
 
 q800-run: q800
 q800-run:
