@@ -959,7 +959,7 @@ static WORD xbios_57(WORD mode)
 /*
  * Falcon video
  */
-#if DBG_XBIOS & CONF_WITH_VIDEL
+#if DBG_XBIOS & (CONF_WITH_VIDEL || CONF_WITH_CUSTOM_XBIOS_VIDEO)
 static WORD xbios_58(WORD mode)
 {
     kprintf("XBIOS: Vsetmode\n");
@@ -1247,7 +1247,6 @@ static LONG xbios_8d(LONG sptr)
  * ASM function _xbios_unimpl will call xbios_do_unimpl(WORD number);
  * with the function number passed as parameter.
  */
-
 LONG xbios_do_unimpl(WORD number)
 {
 #if DBG_XBIOS

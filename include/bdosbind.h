@@ -24,7 +24,7 @@ extern long trap1_pexec(short mode, const char *path, const char *tail, const ch
 #define Cconws(buf) trap1(0x09, buf)
 #define Cconis() trap1(0x0b)
 #define Dsetdrv(drv) trap1(0x0e, drv)
-#if CONF_WITH_VIDEL
+#if CONF_WITH_VIDEL || CONF_WITH_CUSTOM_XBIOS_VIDEO
 #define Srealloc(amount) trap1(0x15, amount)
 #endif
 #define Dgetdrv() trap1(0x19)

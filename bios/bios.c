@@ -1046,6 +1046,7 @@ static LONG bios_4(WORD r_w, UBYTE *adr, WORD numb, WORD first, WORD drive, LONG
  *
  */
 
+OVERRIDEABLE
 LONG setexc(WORD num, LONG vector)
 {
     LONG oldvector;

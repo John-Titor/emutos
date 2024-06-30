@@ -69,7 +69,7 @@ long xsetblk(int n, void *blk, long len);
 /* mxalloc */
 void *xmxalloc(long amount, int mode);
 
-#if CONF_WITH_VIDEL
+#if CONF_WITH_VIDEL || CONF_WITH_CUSTOM_XBIOS_VIDEO
 /* srealloc */
 void *srealloc(long amount);
 #endif

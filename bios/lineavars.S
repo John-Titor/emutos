@@ -12,8 +12,6 @@
 
 #include "asmdefs.h"
 
-#define EXTENDED_PALETTE (CONF_WITH_VIDEL || CONF_WITH_TT_SHIFTER)
-
                 .bss
 
 // ===========================================================================
@@ -41,7 +39,7 @@
                 .globl  _sav_cur_y
 
                 .globl  _mouse_cursor_save
-#if EXTENDED_PALETTE
+#if CONF_WITH_EXTENDED_PALETTE
                 .globl  _ext_mouse_cursor_save
 #endif
 
@@ -76,7 +74,7 @@
                 .globl  _HIDE_CNT
                 .globl  _MOUSE_BT
                 .globl  _REQ_COL
-#if EXTENDED_PALETTE
+#if CONF_WITH_EXTENDED_PALETTE
                 .globl  _req_col2
 #endif
                 .globl  _SIZ_TAB
@@ -339,7 +337,7 @@ _SEEDABORT:     .ds.l   1               // Address of Routine for testing break 
 // ==== references them.
 // ==== The names are partly an EmuTOS invention, and partly stolen from MVDI.
 // ===========================================================================
-#if EXTENDED_PALETTE
+#if CONF_WITH_EXTENDED_PALETTE
                 .ds.b   52
 _req_col2:      .ds.w   720     // [240][3] words for saving color palette
                 .ds.b   8
