@@ -11,6 +11,7 @@ help-local:
 	@echo "pt68k5  $(EMUTOS_PT68K5), EmuTOS for PT68K5"
 	@echo "ip940   $(EMUTOS_IP940), EmuTOS for IP940 ROM"
 	@echo "q800    $(EMUTOS_Q800), EmuTOS for qemu-system-m68k -machine q800"
+	@echo "menb5   $(EMUTOS_IP940), EmuTOS for MEN B5"
 	@echo "qemu    $(EMUTOS_QEMU), suitable for qemu-system-m68k -machine type=atarist"
 
 #
@@ -229,8 +230,60 @@ release-q800:
 	rm -r $(RELEASE_DIR)/$(RELEASE_Q800)
 
 
+################################################################################
 #
-# qemu Image
+# MEN B5
+#
+
+EMUTOS_MENB5 = emutos-menb5.s19
+EMUTOS_MENB5_ELF = emutos-menb5.elf
+MENB5_DEFS =
+TOCLEAN += $(EMUTOS_MENB5) $(EMUTOS_MENB5_ELF) romdisk.menb5
+
+.PHONY: menb5
+NODEP += menb5
+menb5: UNIQUE = $(COUNTRY)
+menb5: CPUFLAGS = -m68040
+menb5: override DEF += -DTARGET_MENB5 $(MENB5_DEFS)
+menb5: WITH_AES = 0
+menb5:
+	$(MAKE) CPUFLAGS='$(CPUFLAGS)' \
+		DEF='$(DEF)' \
+		OPTFLAGS='$(OPTFLAGS)' \
+		WITH_AES=$(WITH_AES) \
+		UNIQUE=$(UNIQUE) \
+		EMUTOS_MENB5=$(EMUTOS_MENB5) \
+		$(EMUTOS_MENB5)
+	@printf "$(LOCALCONFINFO)"
+
+obj/menb5_loader.o: emutos.img
+
+$(EMUTOS_MENB5_ELF): obj/menb5_loader.o
+	$(LD) $+ -Wl,-Ttext=0x4000 -e start -o $@
+
+$(EMUTOS_MENB5): $(EMUTOS_MENB5_ELF)
+	$(OBJCOPY) -O srec --srec-forceS3 --srec-len 100 $< $@
+
+.PHONY: release-menb5
+NODEP += release-menb5
+RELEASE_MENB5 = emutos-menb5-$(VERSION)
+release-menb5:
+	$(MAKE) clean
+	$(MAKE) ip940
+	mkdir -p $(RELEASE_DIR)/$(RELEASE_MENB5)
+	cp $(EMUTOS_MENB5) $(RELEASE_DIR)/$(RELEASE_MENB5)
+	cat doc/readme-ip940.txt readme.txt >$(RELEASE_DIR)/$(RELEASE_MENB5)/readme.txt
+	mkdir -p $(RELEASE_DIR)/$(RELEASE_MENB5)/doc
+	cp $(DOCFILES) $(RELEASE_DIR)/$(RELEASE_MENB5)/doc
+	mkdir -p $(RELEASE_DIR)/$(RELEASE_MENB5)/extras
+	find $(RELEASE_DIR)/$(RELEASE_MENB5) -name '*.txt' -exec unix2dos '{}' ';'
+	cd $(RELEASE_DIR) && zip -9 -r $(RELEASE_MENB5).zip $(RELEASE_MENB5)
+	rm -r $(RELEASE_DIR)/$(RELEASE_MENB5)
+
+
+################################################################################
+#
+# QEMU
 #
 
 EMUTOS_QEMU = emutos-qemu.img
