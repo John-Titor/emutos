@@ -127,9 +127,6 @@ static const ULONG tt_8_palette[256] = {
     0x00442200UL, 0x00441100UL, 0x00ffffffUL, 0x00000000UL,
 };
 
-#define FRAMEBUFFER_REG_BASE    0xffffc000UL
-#define FRAMEBUFFER_PAL_BASE    0xffffc400UL
-
 #define FB_REG(_x)     *((volatile ULONG *)FRAMEBUFFER_REG_BASE + _x)
 #define FB_VBL_ACK      FB_REG(0)
 #define FB_VBL_PERIOD   FB_REG(1)

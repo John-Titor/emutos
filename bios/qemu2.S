@@ -337,16 +337,4 @@ pci_return:
     rte
 
 
-/*
- * Virtio BIOS
- *
- * Calling convention is regular args-on-stack.
- */
-
-    .globl _qemu_vio_dispatch_table
-_qemu_vio_dispatch_table:
-    dc.l        0
-    dc.l        0x00010000
-    .globl      _qemu_vio_find_device
-    dc.l        _qemu_vio_find_device
 #endif /* MACHINE_QEMU */

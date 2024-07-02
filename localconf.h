@@ -93,6 +93,7 @@
 # define CONF_WITH_PRINTER_ICON 0
 # define CONF_WITH_KPRINTF 1
 # define CONF_SERIAL_CONSOLE 1
+/*# define ENABLE_KDEBUG 1 */  /* don't define this to 0, causes dump_mem_map to print */
 # if CONF_SERIAL_CONSOLE
 #  ifndef CONF_SERIAL_CONSOLE_ANSI
 #   define CONF_SERIAL_CONSOLE_ANSI 1
@@ -109,9 +110,6 @@
 # endif
 # ifndef USE_STOP_INSN_TO_FREE_HOST_CPU
 #  define USE_STOP_INSN_TO_FREE_HOST_CPU 1
-# endif
-# ifndef ENABLE_KDEBUG
-#  define ENABLE_KDEBUG 0
 # endif
 # if ENABLE_KDEBUG
 #  define RS232_DEBUG_PRINT 0
@@ -132,6 +130,7 @@
 # define CONF_WITH_KPRINTF 1
 # define CONF_SERIAL_CONSOLE 1
 # define ROM_ORIGIN 0x40800000
+# define ENABLE_KDEBUG 1  /* don't define this to 0, causes dump_mem_map to print */
 # if CONF_SERIAL_CONSOLE
 #  ifndef CONF_SERIAL_CONSOLE_ANSI
 #   define CONF_SERIAL_CONSOLE_ANSI 1
@@ -152,9 +151,6 @@
 # ifndef USE_STOP_INSN_TO_FREE_HOST_CPU
 #  define USE_STOP_INSN_TO_FREE_HOST_CPU 1
 # endif
-# ifndef ENABLE_KDEBUG
-#  define ENABLE_KDEBUG 1
-# endif
 # if ENABLE_KDEBUG
 #  define RS232_DEBUG_PRINT 0
 # endif
@@ -164,24 +160,23 @@
  * Defaults for the QEMU machine
  */
 #ifdef MACHINE_QEMU
+/* Hardware */
 # define CONF_ATARI_HARDWARE 0
+# define CONF_FORCE_CPU_TYPE 40
+# define CONF_STRAM_SIZE 14*1024*1024
+# define CONF_WITH_ADVANCED_CPU 1
+# define CONF_WITH_ALT_RAM 1
+# define CONF_WITH_APOLLO_68080 0
+# define CONF_WITH_BUS_ERROR 1
 # define CONF_WITH_IDE 1
 # define CONF_WITH_IDE_BYTESWAP 1
-# define CONF_WITH_MFP 1
 # define CONF_WITH_IKBD_ACIA 1
 # define CONF_WITH_IKBD_CLOCK 1
-# define CONF_WITH_ADVANCED_CPU 1
-# define CONF_WITH_APOLLO_68080 0
-# define CONF_FORCE_CPU_TYPE 40
-# define CONF_DETECT_FIRST_BOOT_WITHOUT_MEMCONF 1
-# define CONF_WITH_ALT_RAM 1
+# define CONF_WITH_MFP 1
+# define CONF_WITH_RESET 0
 # define CONF_WITH_TTRAM 1
-# define CONF_WITH_BUS_ERROR 1
-# define CONF_WITH_SHUTDOWN 1
-# define CONF_WITH_CUSTOM_XBIOS_VIDEO 1
-# define CONF_WITH_EXTENDED_PALETTE 1
-# define CONF_WITH_XBIOS_EXTENSION 1
-# define CONF_WITH_MACHINE_COOKIES 1
+
+/* AES */
 # define CONF_WITH_3D_OBJECTS 1
 # define CONF_WITH_COLOUR_ICONS 1
 # define CONF_WITH_EXTENDED_OBJECTS 1
@@ -189,22 +184,26 @@
 # define CONF_WITH_MENU_EXTENSION 1
 # define CONF_WITH_NICELINES 1
 # define CONF_WITH_WINDOW_COLOURS 1
+
+/* BIOS */
+# define CONF_DETECT_FIRST_BOOT_WITHOUT_MEMCONF 1
+# define CONF_SERIAL_CONSOLE 0
 # define CONF_WITH_BIOS_EXTENSIONS 1
+# define CONF_WITH_CUSTOM_XBIOS_VIDEO 1
 # define CONF_WITH_EXTENDED_MOUSE 1
-# define CONF_WITH_FORMAT 0
+# define CONF_WITH_EXTENDED_PALETTE 1
+# define CONF_WITH_XBIOS_EXTENSION 1
+
+/* Desktop  */
+# define CONF_WITH_CACHE_CONTROL 0
 # define CONF_WITH_PRINTER_ICON 0
-/*# define TOS_VERSION 0x404*/
-# ifndef CONF_STRAM_SIZE
-#  define CONF_STRAM_SIZE 14*1024*1024
-# endif
-# ifndef CONF_SERIAL_CONSOLE
-#  define CONF_SERIAL_CONSOLE 0
-# endif
-# ifndef ENABLE_KDEBUG
-#  define ENABLE_KDEBUG 0
-# endif
-# ifndef QEMU_DEBUG_PRINT
-#  define QEMU_DEBUG_PRINT 0
-# endif
+# define CONF_WITH_SHUTDOWN 1
+
+/* portability and debug */
+# define CONF_WITH_BIOS_EXTENSIONS 1
+# define CONF_WITH_KPRINTF 1
+# define CONF_WITH_MACHINE_COOKIES 1
+#define ENABLE_KDEBUG 1 /* don't define this to 0, causes dump_mem_map to print */
+
 #endif
 

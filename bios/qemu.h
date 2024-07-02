@@ -5,6 +5,26 @@
 #ifndef QEMU_H
 #define QEMU_H
 
+/* magic numbers shared with the qemu side */
+
+#define PCI_MMIO_BASE           0xd0000000UL
+#define PCI_MMIO_SIZE           0x20000000UL
+#define PCI_MMIO_END            (PCI_MMIO_BASE + PCI_MMIO_SIZE)
+#define PCI_ECAM_BASE           0xf0000000UL
+#define PCI_ECAM_SIZE           0x00100000UL
+#define PCI_IO_BASE             0xf0100000UL
+#define PCI_IO_SIZE             0x00010000UL
+
+#define FRAMEBUFFER_REG_BASE    0xffffc000UL
+#define FRAMEBUFFER_PAL_BASE    0xffffc400UL
+
+#define VIRTIO_BASE             0xf0400000UL
+#define VIRTIO_NDEV                 8
+#define VIRTIO_DEVSIZE              0x200
+
+#define GF_TTY_BASE             0xffffb400UL
+#define VIRT_CTRL_BASE          0xffffb500UL
+
 /* missing utility functions */
 
 __attribute__((unused))
@@ -152,8 +172,6 @@ void qemu_pci_add_cookies(void);
 #define VIO_SUCCESS         0x00000000UL
 #define VIO_NOT_FOUND       0xfffffffcUL
 
-extern PFVOID qemu_vio_dispatch_table[];
-
 ULONG qemu_vio_find_device(ULONG device_id, ULONG index);
 void qemu_vio_init(void);
 void qemu_vio_add_cookies(void);
@@ -163,5 +181,12 @@ void qemu_shutdown(void);
 void qemu_mfp_int(void);
 PFVOID qemu_mfp_revector(PFVOID *vbr);
 PFLONG xbios_extlookup(UWORD fn);
+
+/* VirtIO */
+
+typedef struct {
+    ULONG version;
+    ULONG (* find_device)(ULONG device_id, ULONG index);
+} virtio_dispatch_table_t;
 
 #endif /* QEMU_H */

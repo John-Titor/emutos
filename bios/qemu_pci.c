@@ -19,15 +19,6 @@
 #include "cookie.h"
 #include "pcireg.h"
 
-/* hardcode these for now, but probably want a way to determine empirically */
-#define PCI_MMIO_BASE       0xd0000000UL
-#define PCI_MMIO_SIZE       0x1fc00000UL
-#define PCI_MMIO_END        (PCI_MMIO_BASE + PCI_MMIO_SIZE)
-#define PCI_ECAM_BASE       0xffd00000UL
-#define PCI_ECAM_SIZE       0x00100000UL
-#define PCI_IO_BASE         0xffe00000UL
-#define PCI_IO_SIZE         0x00010000UL
-
 /* config-space-related definitions */
 #define PCI_CFG_FUNCTION_SIZE   0x1000UL
 #define PCI_CFG_DEVICE_SIZE     (8 * PCI_CFG_FUNCTION_SIZE)

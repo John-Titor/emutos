@@ -10,15 +10,6 @@
 
 #define VIO_MAX_DEVS        8
 #define VIO_MAX_TYPE        0x40
-#define VIO_PCI_VENDOR      0x1AF4
-#define VIO_PCI_MINDEV      0x1040
-#define VIO_PCI_MAXDEV      0x107f
-
-#define VIO_CAP_COMMON_CFG  1
-#define VIO_CAP_NOTIFY_CFG  2
-#define VIO_CAP_ISR_CFG     3
-#define VIO_CAP_DEVICE_CFG  4
-#define VIO_CAP_PCI_CFG     5
 
 static const struct
 {
@@ -35,6 +26,18 @@ static const struct
     {0x0000, 0x1040}
 };
 
+/* VIO over PCI */
+
+#define VIO_PCI_VENDOR      0x1AF4
+#define VIO_PCI_MINDEV      0x1040
+#define VIO_PCI_MAXDEV      0x107f
+
+#define VIO_PCI_CAP_COMMON_CFG  1
+#define VIO_PCI_CAP_NOTIFY_CFG  2
+#define VIO_PCI_CAP_ISR_CFG     3
+#define VIO_PCI_CAP_DEVICE_CFG  4
+#define VIO_PCI_CAP_PCI_CFG     5
+
 typedef struct
 {
     LONG    pci_handle;
@@ -45,18 +48,11 @@ typedef struct
     ULONG   device_cfg;
     ULONG   pci_cfg;
     ULONG   notify_multiplier;
-} vio_dev_t;
+} vio_pci_dev_t;
 
-static vio_dev_t vio_devs[VIO_MAX_DEVS];
+static vio_pci_dev_t vio_pci_devs[VIO_MAX_DEVS];
 
-static UWORD vio_num_devs;
-
-void
-qemu_vio_add_cookies(void)
-{
-    /* install the _VIO cookie */
-    cookie_add(0x5f56494f, (ULONG)qemu_vio_dispatch_table);
-}
+static UWORD vio_pci_num_devs;
 
 static ULONG
 vio_ptr_for_cap(LONG pci_handle, LONG capptr)
@@ -78,6 +74,8 @@ vio_ptr_for_cap(LONG pci_handle, LONG capptr)
 void
 qemu_vio_init(void)
 {
+    KDEBUG(("qemu_vio_init()\n"));
+
     /* scan for PCI VirtIO devices */
     for (UWORD pci_index = 0; vio_num_devs < VIO_MAX_DEVS; pci_index++) {
         ULONG pci_handle = qemu_pci_find_pci_device(0xffffUL, pci_index);
@@ -99,7 +97,7 @@ qemu_vio_init(void)
 
             /* if recognised, track */
             if ((pci_device > VIO_PCI_MINDEV) && (pci_device < VIO_PCI_MAXDEV)) {
-                vio_dev_t *vdev = &vio_devs[vio_num_devs];
+                vio_dev_t *vdev = &vio_pci_devs[vio_num_devs];
                 LONG capptr = 0;
 
                 vdev->pci_handle = pci_handle;
@@ -116,28 +114,28 @@ qemu_vio_init(void)
                         UBYTE cap_type = qemu_pci_fast_read_config_byte(pci_handle, capptr + 3);
 
                         switch (cap_type) {
-                        case VIO_CAP_COMMON_CFG:
+                        case VIO_PCI_CAP_COMMON_CFG:
                             if (vdev->common_cfg == 0) {
                                 vdev->common_cfg = cfg_addr;
                             }
                             break;
-                        case VIO_CAP_NOTIFY_CFG:
+                        case VIO_PCI_CAP_NOTIFY_CFG:
                             if (vdev->notify_cfg == 0) {
                                 vdev->notify_cfg = cfg_addr;
                                 vdev->notify_multiplier = qemu_pci_fast_read_config_longword(pci_handle, capptr + 16);
                             }
                             break;
-                        case VIO_CAP_ISR_CFG:
+                        case VIO_PCI_CAP_ISR_CFG:
                             if (vdev->isr_cfg == 0) {
                                 vdev->isr_cfg = cfg_addr;
                             }
                             break;
-                        case VIO_CAP_DEVICE_CFG:
+                        case VIO_PCI_CAP_DEVICE_CFG:
                             if (vdev->device_cfg == 0) {
                                 vdev->device_cfg = cfg_addr;
                             }
                             break;
-                        case VIO_CAP_PCI_CFG:
+                        case VIO_PCI_CAP_PCI_CFG:
                             if (vdev->pci_cfg == 0) {
                                 vdev->pci_cfg = cfg_addr;
                             }
@@ -154,7 +152,7 @@ qemu_vio_init(void)
                 KDEBUG(("    multiplier 0x%08lx\n", vdev->notify_multiplier));
                 KDEBUG(("  isr    @ 0x%08lx\n", vdev->isr_cfg));
                 KDEBUG(("  device @ 0x%08lx\n", vdev->device_cfg));
-                KDEBUG(("  pci    @ 0x%08lx\n", vdev->pci_cfg));
+                KDEBUG(("  pcicfg @ 0x%08lx\n", vdev->pci_cfg));
                 vio_num_devs++;
             }
         }
@@ -168,7 +166,7 @@ ULONG
 qemu_vio_find_device(ULONG device_id, ULONG index)
 {
     for (UWORD i = 0; i < vio_num_devs; i++) {
-        if (device_id == vio_devs[i].device_id) {
+        if (device_id == vio_pci_devs[i].device_id) {
             if (index-- == 0) {
                 return i;
             }
@@ -176,5 +174,18 @@ qemu_vio_find_device(ULONG device_id, ULONG index)
     }
     return VIO_NOT_FOUND;
 }
+
+static const virtio_dispatch_table_t qemu_vio_dispatch_table = {
+    0x56494f30,
+    qemu_vio_find_device
+};
+
+void
+qemu_vio_add_cookies(void)
+{
+    /* install the _VIO cookie */
+    cookie_add(0x5f56494f, (ULONG)&qemu_vio_dispatch_table);
+}
+
 
 #endif /* MACHINE_QEMU */

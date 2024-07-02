@@ -97,8 +97,6 @@ const char * machine_name(void)
  * QEMU control register.
  */
 
-#define VIRT_CTRL_BASE    0xffffb500UL
-
 BOOL can_shutdown(void)
 {
     return TRUE;
@@ -263,7 +261,7 @@ void kprintf_outc(int c)
         kprintf_outc('\r');
     }
     /* send direct to the Goldfish TTY */
-    *(volatile LONG *)0xffffb400UL = c;
+    *(volatile LONG *)GF_TTY_BASE = c;
 }
 
 #endif /* MACHINE_QEMU */
