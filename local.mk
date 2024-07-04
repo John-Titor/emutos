@@ -22,7 +22,8 @@ help-local:
 LOCAL_OBJS = pt68k5.c \
              ip940.c \
              q800.c \
-             qemu.c qemu_pci.c qemu_video.c qemu_virtio.c qemu2.S
+             qemu.c qemu_pci.c qemu_video.c qemu2.S \
+             qemu_virtio.c qemu_virtio_input.c
 
 bios_src += $(LOCAL_OBJS)
 

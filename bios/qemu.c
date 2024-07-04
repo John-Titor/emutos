@@ -239,7 +239,7 @@ void machine_init(void)
     VEC_LEVEL6 = qemu_mfp_int;
 
     qemu_pci_init();
-    qemu_vio_init();
+    qemu_virtio_init();
 }
 
 /********************************************************************
@@ -248,7 +248,7 @@ void machine_init(void)
 void machine_add_cookies(void)
 {
     qemu_pci_add_cookies();
-    qemu_vio_add_cookies();
+    qemu_virtio_add_cookies();
     qemu_video_add_cookies();
 }
 

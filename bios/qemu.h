@@ -20,7 +20,7 @@
 
 #define VIRTIO_BASE             0xf0400000UL
 #define VIRTIO_NDEV                 8
-#define VIRTIO_DEVSIZE              0x200
+#define VIRTIO_DEVSIZE              0x200UL
 
 #define GF_TTY_BASE             0xffffb400UL
 #define VIRT_CTRL_BASE          0xffffb500UL
@@ -73,7 +73,15 @@ void qemu_vbl(void);
 void qemu_vbl_shim(void);
 void qemu_video_add_cookies(void);
 
-/* PCI */
+/* misc system */
+void qemu_shutdown(void);
+void qemu_mfp_int(void);
+PFVOID qemu_mfp_revector(PFVOID *vbr);
+PFLONG xbios_extlookup(UWORD fn);
+
+/************************************************************************
+ * PCI
+ */
 
 struct pci_resource_info
 {
@@ -167,26 +175,159 @@ void qemu_pci_interrupt(void);
 void qemu_pci_spurious(void);
 void qemu_pci_add_cookies(void);
 
-/* VirtIO */
+/************************************************************************
+ * VirtIO
+ */
 
-#define VIO_SUCCESS         0x00000000UL
-#define VIO_NOT_FOUND       0xfffffffcUL
+#define VIRTIO_SUCCESS          0x00000000UL
+#define VIRTIO_ERROR            0xffffffffUL
 
-ULONG qemu_vio_find_device(ULONG device_id, ULONG index);
-void qemu_vio_init(void);
-void qemu_vio_add_cookies(void);
+#define VIRTIO_VENDOR_QEMU      0x554d4551UL
+#define VIRTIO_DEVICE_INPUT     0x12UL
 
-/* misc system */
-void qemu_shutdown(void);
-void qemu_mfp_int(void);
-PFVOID qemu_mfp_revector(PFVOID *vbr);
-PFLONG xbios_extlookup(UWORD fn);
+void qemu_virtio_init(void);
+void qemu_virtio_add_cookies(void);
+void qemu_virtio_register_interrupt(ULONG handle, void (* handler)(ULONG), ULONG arg);
+void qemu_virtio_input_device_init(ULONG handle);
 
-/* VirtIO */
+/*
+ * MMIO registers
+ */
 
+#define VIRTIO_MMIO_MAGIC_VALUE         0x000
+#define VIRTIO_MMIO_VERSION             0x004
+#define VIRTIO_MMIO_VERSION_SUPPORTED       2
+#define VIRTIO_MMIO_DEVICE_ID           0x008
+#define VIRTIO_MMIO_VENDOR_ID           0x00c
+#define VIRTIO_MMIO_DEVICE_FEATURES     0x010
+#define VIRTIO_MMIO_DEVICE_FEATURES_SEL 0x014
+#define VIRTIO_F_VERSION_1                  (1<<0)  /* in Features[1] */
+#define VIRTIO_MMIO_DRIVER_FEATURES     0x020
+#define VIRTIO_MMIO_DRIVER_FEATURES_SEL 0x024
+#define VIRTIO_MMIO_QUEUE_SEL           0x030
+#define VIRTIO_MMIO_QUEUE_NUM_MAX       0x034
+#define VIRTIO_MMIO_QUEUE_NUM           0x038
+#define VIRTIO_MMIO_QUEUE_READY         0x044
+#define VIRTIO_MMIO_QUEUE_NOTIFY        0x050
+#define VIRTIO_MMIO_INTERRUPT_STATUS    0x060
+#define VIRTIO_MMIO_INT_VRING               (1<<0)
+#define VIRTIO_MMIO_INT_CONFIG              (1<<1)
+#define VIRTIO_MMIO_INTERRUPT_ACK       0x064
+#define VIRTIO_MMIO_STATUS              0x070
+#define VIRTIO_STAT_ACKNOWLEDGE             (1<<0)
+#define VIRTIO_STAT_DRIVER                  (1<<1)
+#define VIRTIO_STAT_DRIVER_OK               (1<<2)
+#define VIRTIO_STAT_FEATURES_OK             (1<<3)
+#define VIRTIO_STAT_NEEDS_RESET             (1<<6)
+#define VIRTIO_STAT_FAILED                  (1<<7)
+#define VIRTIO_MMIO_QUEUE_DESC_LOW      0x080
+#define VIRTIO_MMIO_QUEUE_DESC_HIGH     0x084
+#define VIRTIO_MMIO_QUEUE_AVAIL_LOW     0x090
+#define VIRTIO_MMIO_QUEUE_AVAIL_HIGH    0x094
+#define VIRTIO_MMIO_QUEUE_USED_LOW      0x0a0
+#define VIRTIO_MMIO_QUEUE_USED_HIGH     0x0a4
+#define VIRTIO_MMIO_SHM_SEL             0x0ac
+#define VIRTIO_MMIO_SHM_LEN_LOW         0x0b0
+#define VIRTIO_MMIO_SHM_LEN_HIGH        0x0b4
+#define VIRTIO_MMIO_SHM_BASE_LOW        0x0b8
+#define VIRTIO_MMIO_SHM_BASE_HIGH       0x0bc
+#define VIRTIO_MMIO_QUEUE_RESET         0x0c0
+#define VIRTIO_MMIO_CONFIG_GENERATION   0x0fc
+#define VIRTIO_MMIO_CONFIG              0x100
+
+static volatile inline ULONG virtio_mmio_read32(ULONG handle, UWORD regidx)
+{
+    return swap32(*((volatile ULONG *)(VIRTIO_BASE + (handle * VIRTIO_DEVSIZE) + regidx)));
+}
+
+static volatile inline UWORD virtio_mmio_read16(ULONG handle, UWORD regidx)
+{
+    return swap16(*((volatile UWORD *)(VIRTIO_BASE + (handle * VIRTIO_DEVSIZE) + regidx)));
+}
+
+static volatile inline UBYTE virtio_mmio_read8(ULONG handle, UWORD regidx)
+{
+    return *((volatile UBYTE *)(VIRTIO_BASE + (handle * VIRTIO_DEVSIZE) + regidx));
+}
+
+static inline void virtio_mmio_write32(ULONG handle, UWORD regidx, ULONG val)
+{
+    *((volatile ULONG *)(VIRTIO_BASE + (handle * VIRTIO_DEVSIZE) + regidx)) = swap32(val);
+}
+
+static inline void virtio_mmio_write8(ULONG handle, UWORD regidx, UBYTE val)
+{
+    *((volatile UBYTE *)(VIRTIO_BASE + (handle * VIRTIO_DEVSIZE) + regidx)) = val;
+}
+
+/*
+ * MMIO queue structures
+ */
+
+typedef struct { ULONG v0, v1; } le64;
+static inline void write_le64(le64 *s, ULONG v) { s->v0 = swap32(v); s->v1 = 0; }
+
+typedef struct { ULONG v; } le32;
+static inline ULONG read_le32(le32 *s)          { return swap32(s->v);  }
+static inline void write_le32(le32 *s, ULONG v) { s->v = swap32(v);     }
+
+typedef struct { UWORD v; } le16;
+static inline UWORD read_le16(le16 *s)          { return swap16(s->v);  }
+static inline void write_le16(le16 *s, UWORD v) { s->v = swap16(v);     }
+
+#define VIRTIO_QUEUE_MAX    8       /* fix the size of virtqs to "very small" */
+
+/* input device, 5.8.6 */
+struct virtio_input_event {
+  le16 type;
+  le16 code;
+  le32 value;
+};
+
+/* descriptor table, 2.7.5 */
+struct virtq_desc {
+        le64 addr;
+        le32 len;
+        le16 flags;
+#define VIRTQ_DESC_F_NEXT       1
+#define VIRTQ_DESC_F_WRITE      2
+        le16 next;
+} __attribute__((aligned(16)));
+
+/* available ring, 2.7.6 */
+struct virtq_avail {
+        le16 flags;                     /* always zero */
+        le16 idx;
+        le16 ring[VIRTIO_QUEUE_MAX];
+} __attribute__((aligned(2)));
+
+/* used ring, 2.7.8 */
+struct virtq_used_elem {
+        le32 id;
+        le32 len;
+};
+
+struct virtq_used {
+        le16 flags;                     /* always zero */
+        le16 idx;
+        struct virtq_used_elem ring[VIRTIO_QUEUE_MAX];
+} __attribute__((aligned(4)));
+
+struct virtio_vq
+{
+    struct virtq_desc   desc[VIRTIO_QUEUE_MAX];
+    struct virtq_used   used;
+    struct virtq_avail  avail;
+};
+
+/* VirtIO BIOS info / entrypoint structure */
 typedef struct {
     ULONG version;
-    ULONG (* find_device)(ULONG device_id, ULONG index);
+    ULONG base_address;
+    ULONG device_size;
+    ULONG num_devices;
+    ULONG (* acquire)(ULONG handle, void (*interrupt_handler)(ULONG), ULONG arg);
+    ULONG (* release)(ULONG handle);
 } virtio_dispatch_table_t;
 
 #endif /* QEMU_H */

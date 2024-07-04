@@ -1,190 +1,203 @@
 /*
  * QEMU VirtIO functionality.
+ *
+ * Conforms to and spec references sections in OASIS VirtIO 1.2, MMIO mode only.
+ *
+ * Internal drivers:
+ *  - Always use a fixed virtq size of 8 entries.
+ *  - Do not negotiate VIRTIO_F_EVENT_IDX.
+ *  - Always request notification for every update.
  */
 
 #include "emutos.h"
 #ifdef MACHINE_QEMU
 #include "qemu.h"
+#include "biosext.h"
 #include "cookie.h"
-#include "pcireg.h"
+#include "string.h"
+#include "vectors.h"
 
-#define VIO_MAX_DEVS        8
-#define VIO_MAX_TYPE        0x40
-
-static const struct
-{
-    UWORD   from;
-    UWORD   to;
-} vio_id_map[] = {
-    {0x1000, 0x1041},   /* network card */
-    {0x1001, 0x1042},   /* block device */
-    {0x1002, 0x1045},   /* memory ballooning (traditional) */
-    {0x1003, 0x1043},   /* console */
-    {0x1004, 0x1048},   /* SCSI host */
-    {0x1005, 0x1044},   /* entropy source */
-    {0x1009, 0x1049},   /* 9P transport */
-    {0x0000, 0x1040}
+enum {
+    VD_NONE,
+    VD_USER,
+    VD_INPUT,
 };
-
-/* VIO over PCI */
-
-#define VIO_PCI_VENDOR      0x1AF4
-#define VIO_PCI_MINDEV      0x1040
-#define VIO_PCI_MAXDEV      0x107f
-
-#define VIO_PCI_CAP_COMMON_CFG  1
-#define VIO_PCI_CAP_NOTIFY_CFG  2
-#define VIO_PCI_CAP_ISR_CFG     3
-#define VIO_PCI_CAP_DEVICE_CFG  4
-#define VIO_PCI_CAP_PCI_CFG     5
 
 typedef struct
 {
-    LONG    pci_handle;
-    UWORD   device_id;
-    ULONG   common_cfg;
-    ULONG   notify_cfg;
-    ULONG   isr_cfg;
-    ULONG   device_cfg;
-    ULONG   pci_cfg;
-    ULONG   notify_multiplier;
-} vio_pci_dev_t;
+    BOOL                present;
+    int                 owner;
+    void                (* interrupt_callback)(ULONG handle);
+    ULONG               interrupt_arg;
+} virtio_dev_t;
 
-static vio_pci_dev_t vio_pci_devs[VIO_MAX_DEVS];
+static virtio_dev_t vio_devs[VIRTIO_NDEV];
 
-static UWORD vio_pci_num_devs;
-
-static ULONG
-vio_ptr_for_cap(LONG pci_handle, LONG capptr)
+static void
+qemu_virtio_dump_dev(ULONG handle)
 {
-    UBYTE bar = qemu_pci_fast_read_config_byte(pci_handle, capptr + 4);
-    ULONG offset = qemu_pci_fast_read_config_longword(pci_handle, capptr + 8);
-    const struct pci_resource_info *rsc = (const struct pci_resource_info *)qemu_pci_get_resource(pci_handle);
+    KDEBUG(("virtio%lu:\n", handle));
+    KDEBUG(("  MagicValue:          0x%lx\n", virtio_mmio_read32(handle, VIRTIO_MMIO_MAGIC_VALUE)));
+    KDEBUG(("  Version:             0x%lx\n", virtio_mmio_read32(handle, VIRTIO_MMIO_VERSION)));
+    KDEBUG(("  DeviceID:            0x%lx\n", virtio_mmio_read32(handle, VIRTIO_MMIO_DEVICE_ID)));
+    KDEBUG(("  VendorID:            0x%lx\n", virtio_mmio_read32(handle, VIRTIO_MMIO_VENDOR_ID)));
+    KDEBUG(("  DeviceFeatures0:     0x%lx\n", virtio_mmio_read32(handle, VIRTIO_MMIO_DEVICE_FEATURES)));
+    KDEBUG(("  DeviceFeaturesSel0:  0x%lx\n", virtio_mmio_read32(handle, VIRTIO_MMIO_DEVICE_FEATURES_SEL)));
+    virtio_mmio_write32(handle, VIRTIO_MMIO_DEVICE_FEATURES_SEL, 1);
+    KDEBUG(("  DeviceFeatures1:     0x%lx\n", virtio_mmio_read32(handle, VIRTIO_MMIO_DEVICE_FEATURES)));
+    KDEBUG(("  DriverFeatures:      0x%lx\n", virtio_mmio_read32(handle, VIRTIO_MMIO_DRIVER_FEATURES)));
+    KDEBUG(("  DriverFeaturesSel:   0x%lx\n", virtio_mmio_read32(handle, VIRTIO_MMIO_DRIVER_FEATURES_SEL)));
+    virtio_mmio_write32(handle, VIRTIO_MMIO_QUEUE_SEL, 0);
+    KDEBUG(("  QueueSel:            0x%lx\n", virtio_mmio_read32(handle, VIRTIO_MMIO_QUEUE_SEL)));
+    KDEBUG(("  QueueNumMax:         0x%lx\n", virtio_mmio_read32(handle, VIRTIO_MMIO_QUEUE_NUM_MAX)));
+    KDEBUG(("  QueueNum:            0x%lx\n", virtio_mmio_read32(handle, VIRTIO_MMIO_QUEUE_NUM)));
+    virtio_mmio_write32(handle, VIRTIO_MMIO_QUEUE_SEL, 1);
+    KDEBUG(("  QueueSel:            0x%lx\n", virtio_mmio_read32(handle, VIRTIO_MMIO_QUEUE_SEL)));
+    KDEBUG(("  QueueNumMax1:        0x%lx\n", virtio_mmio_read32(handle, VIRTIO_MMIO_QUEUE_NUM_MAX)));
+    KDEBUG(("  QueueNum1:           0x%lx\n", virtio_mmio_read32(handle, VIRTIO_MMIO_QUEUE_NUM)));
+    KDEBUG(("  QueueReady:          0x%lx\n", virtio_mmio_read32(handle, VIRTIO_MMIO_QUEUE_READY)));
+    KDEBUG(("  QueueNotify:         0x%lx\n", virtio_mmio_read32(handle, VIRTIO_MMIO_QUEUE_NOTIFY)));
+    KDEBUG(("  InterruptStatus:     0x%lx\n", virtio_mmio_read32(handle, VIRTIO_MMIO_INTERRUPT_STATUS)));
+    KDEBUG(("  InterruptACK:        0x%lx\n", virtio_mmio_read32(handle, VIRTIO_MMIO_INTERRUPT_ACK)));
+    KDEBUG(("  Status:              0x%lx\n", virtio_mmio_read32(handle, VIRTIO_MMIO_STATUS)));
+    KDEBUG(("  QueueDescLow:        0x%lx\n", virtio_mmio_read32(handle, VIRTIO_MMIO_QUEUE_DESC_LOW)));
+    KDEBUG(("  QueueDescHigh:       0x%lx\n", virtio_mmio_read32(handle, VIRTIO_MMIO_QUEUE_DESC_HIGH)));
+    KDEBUG(("  QueueDriverLow:      0x%lx\n", virtio_mmio_read32(handle, VIRTIO_MMIO_QUEUE_AVAIL_LOW)));
+    KDEBUG(("  QueueDriverHigh:     0x%lx\n", virtio_mmio_read32(handle, VIRTIO_MMIO_QUEUE_AVAIL_HIGH)));
+    KDEBUG(("  QueueDeviceLow:      0x%lx\n", virtio_mmio_read32(handle, VIRTIO_MMIO_QUEUE_USED_LOW)));
+    KDEBUG(("  QueueDeviceHigh:     0x%lx\n", virtio_mmio_read32(handle, VIRTIO_MMIO_QUEUE_USED_HIGH)));
+    KDEBUG(("  ShmLenLow:           0x%lx\n", virtio_mmio_read32(handle, VIRTIO_MMIO_SHM_LEN_LOW)));
+    KDEBUG(("  ShmLenHigh:          0x%lx\n", virtio_mmio_read32(handle, VIRTIO_MMIO_SHM_LEN_HIGH)));
+    KDEBUG(("  ShmBaseLow:          0x%lx\n", virtio_mmio_read32(handle, VIRTIO_MMIO_SHM_BASE_LOW)));
+    KDEBUG(("  ShmBaseHigh:         0x%lx\n", virtio_mmio_read32(handle, VIRTIO_MMIO_SHM_BASE_HIGH)));
+    KDEBUG(("  ConfigGeneration:    0x%lx\n", virtio_mmio_read32(handle, VIRTIO_MMIO_CONFIG_GENERATION)));
+}
 
-    /* scan resources for a matching BAR */
-    do {
-        if (rsc->bar == bar) {
-            return rsc->start + offset;
+__attribute__((interrupt))
+static void
+qemu_virtio_interrupt(void)
+{
+    KDEBUG(("qemu_virtio_interrupt()\n"));
+    for (ULONG handle = 0; handle < VIRTIO_NDEV; handle++) {
+        ULONG status = virtio_mmio_read32(handle, VIRTIO_MMIO_INTERRUPT_STATUS);
+        virtio_mmio_write32(handle, VIRTIO_MMIO_INTERRUPT_ACK, status);
+        if (status & VIRTIO_MMIO_INT_CONFIG) {
+            if (virtio_mmio_read32(handle, VIRTIO_MMIO_STATUS) & VIRTIO_STAT_NEEDS_RESET) {
+                KDEBUG(("virtio%lu: device requested reset\n", handle));
+                virtio_mmio_write32(handle, VIRTIO_MMIO_STATUS, 0);
+            } else {
+                KDEBUG(("virtio%lu: config changed\n", handle));
+            }
         }
-    } while (!((rsc++)->flags & PCI_RSC_LAST));
-
-    return 0;
+        if (status & VIRTIO_MMIO_INT_VRING) {
+            if (vio_devs[handle].interrupt_callback == 0) {
+                panic("virtio%lu: interrupt but no handler\n", handle);
+            }
+            vio_devs[handle].interrupt_callback(vio_devs[handle].interrupt_arg);
+        }
+    }
 }
 
 void
-qemu_vio_init(void)
+qemu_virtio_init(void)
 {
-    KDEBUG(("qemu_vio_init()\n"));
+    KDEBUG(("qemu_virtio_init()\n"));
 
-    /* scan for PCI VirtIO devices */
-    for (UWORD pci_index = 0; vio_num_devs < VIO_MAX_DEVS; pci_index++) {
-        ULONG pci_handle = qemu_pci_find_pci_device(0xffffUL, pci_index);
-        if (pci_handle == PCI_DEVICE_NOT_FOUND) {
+    for (WORD handle = 0; handle < VIRTIO_NDEV; handle++) {
+
+        /* check magic / version */
+        if ((virtio_mmio_read32(handle, VIRTIO_MMIO_MAGIC_VALUE) != 0x74726976) ||
+            (virtio_mmio_read32(handle, VIRTIO_MMIO_VERSION) != VIRTIO_MMIO_VERSION_SUPPORTED) ||
+            (virtio_mmio_read32(handle, VIRTIO_MMIO_DEVICE_ID) == 0)) {
+            continue;
+        }
+
+        /* require VERSION_1 feature */
+        virtio_mmio_write32(handle, VIRTIO_MMIO_DEVICE_FEATURES_SEL, 1);
+        if ((virtio_mmio_read32(handle, VIRTIO_MMIO_DEVICE_FEATURES) & VIRTIO_F_VERSION_1) == 0) {
+            continue;
+        }
+
+        /* flag as present */
+        vio_devs[handle].present = TRUE;
+
+        /* reset */
+        virtio_mmio_write32(handle, VIRTIO_MMIO_STATUS, 0);
+
+        /* acknowledge device existence */
+        virtio_mmio_write32(handle, VIRTIO_MMIO_STATUS, VIRTIO_STAT_ACKNOWLEDGE);
+
+        /* check for internal support */
+        switch (virtio_mmio_read32(handle, VIRTIO_MMIO_DEVICE_ID)) {
+        case VIRTIO_DEVICE_INPUT:  /* input device */
+            qemu_virtio_input_device_init(handle);
+            vio_devs[handle].owner = VD_INPUT;
+            break;
+        default:
+            qemu_virtio_dump_dev(handle);
             break;
         }
-
-        /* check for VirtIO vendor ID */
-        if (qemu_pci_fast_read_config_word(pci_handle, PCIR_VENDOR) == VIO_PCI_VENDOR) {
-            UWORD pci_device = qemu_pci_fast_read_config_word(pci_handle, PCIR_DEVICE);
-
-            /* translate transitional IDs */
-            for (UWORD i = 0; vio_id_map[i].from != 0; i++) {
-                if (pci_device == vio_id_map[i].from) {
-                    pci_device = vio_id_map[i].to;
-                    break;
-                }
-            }
-
-            /* if recognised, track */
-            if ((pci_device > VIO_PCI_MINDEV) && (pci_device < VIO_PCI_MAXDEV)) {
-                vio_dev_t *vdev = &vio_pci_devs[vio_num_devs];
-                LONG capptr = 0;
-
-                vdev->pci_handle = pci_handle;
-                vdev->device_id = pci_device - VIO_PCI_MINDEV;
-
-                /* scan for caps with config offsets */
-                for (;;) {
-                    capptr = qemu_pci_get_next_cap(pci_handle, capptr);
-                    if (capptr == 0) {
-                        break;
-                    }
-                    if (qemu_pci_fast_read_config_byte(pci_handle, capptr) == PCIY_VENDOR) {
-                        ULONG cfg_addr = vio_ptr_for_cap(pci_handle, capptr);
-                        UBYTE cap_type = qemu_pci_fast_read_config_byte(pci_handle, capptr + 3);
-
-                        switch (cap_type) {
-                        case VIO_PCI_CAP_COMMON_CFG:
-                            if (vdev->common_cfg == 0) {
-                                vdev->common_cfg = cfg_addr;
-                            }
-                            break;
-                        case VIO_PCI_CAP_NOTIFY_CFG:
-                            if (vdev->notify_cfg == 0) {
-                                vdev->notify_cfg = cfg_addr;
-                                vdev->notify_multiplier = qemu_pci_fast_read_config_longword(pci_handle, capptr + 16);
-                            }
-                            break;
-                        case VIO_PCI_CAP_ISR_CFG:
-                            if (vdev->isr_cfg == 0) {
-                                vdev->isr_cfg = cfg_addr;
-                            }
-                            break;
-                        case VIO_PCI_CAP_DEVICE_CFG:
-                            if (vdev->device_cfg == 0) {
-                                vdev->device_cfg = cfg_addr;
-                            }
-                            break;
-                        case VIO_PCI_CAP_PCI_CFG:
-                            if (vdev->pci_cfg == 0) {
-                                vdev->pci_cfg = cfg_addr;
-                            }
-                            break;
-                        default:
-                            KDEBUG(("virtio %d: unhandled cap type %d\n", vio_num_devs, cap_type));
-                        }
-                    }
-                }
-
-                KDEBUG(("virtio%d: type %d\n", vio_num_devs, vdev->device_id));
-                KDEBUG(("  common @ 0x%08lx\n", vdev->common_cfg));
-                KDEBUG(("  notify @ 0x%08lx\n", vdev->notify_cfg));
-                KDEBUG(("    multiplier 0x%08lx\n", vdev->notify_multiplier));
-                KDEBUG(("  isr    @ 0x%08lx\n", vdev->isr_cfg));
-                KDEBUG(("  device @ 0x%08lx\n", vdev->device_cfg));
-                KDEBUG(("  pcicfg @ 0x%08lx\n", vdev->pci_cfg));
-                vio_num_devs++;
-            }
-        }
     }
 }
+
 
 /*
- * API
+ * External API.
  */
-ULONG
-qemu_vio_find_device(ULONG device_id, ULONG index)
+
+void
+qemu_virtio_register_interrupt(ULONG handle, void (* handler)(ULONG), ULONG arg)
 {
-    for (UWORD i = 0; i < vio_num_devs; i++) {
-        if (device_id == vio_pci_devs[i].device_id) {
-            if (index-- == 0) {
-                return i;
-            }
-        }
-    }
-    return VIO_NOT_FOUND;
+    /* claim the vector back from MiNT? */
+    VEC_LEVEL2 = qemu_virtio_interrupt;
+    vio_devs[handle].interrupt_callback = handler;
+    vio_devs[handle].interrupt_arg = arg;
 }
 
-static const virtio_dispatch_table_t qemu_vio_dispatch_table = {
-    0x56494f30,
-    qemu_vio_find_device
+static BOOL
+qemu_virtio_handle_valid(ULONG handle)
+{
+    return (handle < VIRTIO_NDEV) && vio_devs[handle].present;
+}
+
+static ULONG
+virtio_acquire(ULONG handle, void (*interrupt_handler)(ULONG), ULONG arg)
+{
+    if (!qemu_virtio_handle_valid(handle) ||
+        vio_devs[handle].owner != VD_NONE) {
+        return VIRTIO_ERROR;
+    }
+    vio_devs[handle].owner = VD_USER;
+    qemu_virtio_register_interrupt(handle, interrupt_handler, arg);
+    return VIRTIO_SUCCESS;
+}
+
+static ULONG
+virtio_release(ULONG handle)
+{
+    if (!qemu_virtio_handle_valid(handle) ||
+        (vio_devs[handle].owner != VD_USER)) {
+        return VIRTIO_ERROR;
+    }
+    vio_devs[handle].owner = VD_NONE;
+    vio_devs[handle].interrupt_callback = NULL;
+    return VIRTIO_SUCCESS;
+}
+
+static const virtio_dispatch_table_t qemu_virtio_dispatch_table = {
+    .version = 0x56494f30,
+    .base_address = VIRTIO_BASE,
+    .device_size = VIRTIO_DEVSIZE,
+    .num_devices = VIRTIO_NDEV,
+    .acquire = virtio_acquire,
+    .release = virtio_release,
 };
 
 void
-qemu_vio_add_cookies(void)
+qemu_virtio_add_cookies(void)
 {
     /* install the _VIO cookie */
-    cookie_add(0x5f56494f, (ULONG)&qemu_vio_dispatch_table);
+    cookie_add(0x5f56494f, (ULONG)&qemu_virtio_dispatch_table);
 }
 
 
